@@ -1,5 +1,4 @@
 import logging
-from os import getenv
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -9,12 +8,11 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from config import BOT_TOKEN
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
-
-BOT_TOKEN = getenv("BOT_TOKEN")
 
 # ConversationHandler states
 URL = range(1)
