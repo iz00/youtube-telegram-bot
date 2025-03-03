@@ -29,3 +29,20 @@ def is_valid_youtube_url_format(url):
 
     pattern = re.compile(pattern, re.VERBOSE | re.IGNORECASE)
     return bool(pattern.match(url))
+
+
+def get_type_id_url(url):
+    """Get the type and ID of YouTube URL.
+    Type is either "playlist" or "video"."""
+    if "playlist" in url:
+        playlist_pattern = r"[?&]list=([a-zA-Z0-9_-]+)"
+        playlist_match = re.search(playlist_pattern, url)
+        if playlist_match:
+            return {"type": "playlist", "id": playlist_match.group(1)}
+
+    video_pattern = r"(?:youtube\.com\/(?:[^\/]+\/[^\/]+\/|(?:v|shorts)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})"
+    video_match = re.search(video_pattern, url)
+    if video_match:
+        return {"type": "video", "id": video_match.group(1)}
+
+    return {"error": "Invalid URL."}
