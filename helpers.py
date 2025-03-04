@@ -1,7 +1,5 @@
-import re, requests
-from os import getenv
+import re, yt_dlp
 
-YOUTUBE_API_KEY = getenv("YOUTUBE_API_KEY")
 
 def is_valid_youtube_url_format(url):
     """Returns True if the URL is a valid YouTube video, shorts, or playlist URL.
@@ -50,52 +48,31 @@ def get_type_id_url(url):
     return {"error": "Invalid URL."}
 
 
-def get_videos_ids(type, id):
+def get_videos_urls(type, id):
     """
-    Validate YouTube video or playlist ID and return a list of video IDs.
+    Validate YouTube video or playlist ID and return a list of video URLs.
     - If the ID is invalid, return an empty list.
-    - If it's a video, return [video_id].
-    - If it's a playlist, return all video IDs in the playlist.
+    - If it's a video, return [video URL] (unless video is blocked or unavailable).
+    - If it's a playlist, return all available video URLs (even blocked or unavailable ones).
     """
-    if type == "video":
-        url = f"https://www.googleapis.com/youtube/v3/videos"
-        params = {
-            "part": "status",
-            "id": id,
-            "key": YOUTUBE_API_KEY,
-        }
-    elif type == "playlist":
-        url = "https://www.googleapis.com/youtube/v3/playlistItems"
-        params = {
-            "part": "contentDetails",
-            "playlistId": id,
-            "maxResults": 50,
-            "key": YOUTUBE_API_KEY,
-        }
-    else:
-        return []
+    url = f"https://www.youtube.com/{'watch?v=' + id if type == 'video' else 'playlist?list=' + id}"
 
-    video_ids = []
-    next_page_token = None
+    ydl_opts = {
+        "quiet": True,
+        "extract_flat": True,  # Only get URLs, no extra info
+        "force_generic_extractor": True,  # Prevents unnecessary API calls
+    }
 
-    while True:
-        response = requests.get(url, params=params)
-        data = response.json()
-
-        # Invalid video or playlist
-        if not data.get("items"):
-            return []
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
 
         if type == "video":
-            return [id]
+            return [info["webpage_url"]] if "webpage_url" in info else []
+        elif type == "playlist":
+            return [entry["url"] for entry in info.get("entries", []) if "url" in entry]
 
-        for item in data["items"]:
-            video_ids.append(item["contentDetails"]["videoId"])
+    except yt_dlp.utils.DownloadError:
+        return []
 
-        # Check for more pages, API only gets 50 videos at a time
-        next_page_token = data.get("nextPageToken")
-        if not next_page_token:
-            break
-        params["pageToken"] = next_page_token
-
-    return video_ids
+    return []
