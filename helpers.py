@@ -1,5 +1,7 @@
-import re
+import re, requests
+from os import getenv
 
+YOUTUBE_API_KEY = getenv("YOUTUBE_API_KEY")
 
 def is_valid_youtube_url_format(url):
     """Returns True if the URL is a valid YouTube video, shorts, or playlist URL.
@@ -46,3 +48,54 @@ def get_type_id_url(url):
         return {"type": "video", "id": video_match.group(1)}
 
     return {"error": "Invalid URL."}
+
+
+def get_videos_ids(type, id):
+    """
+    Validate YouTube video or playlist ID and return a list of video IDs.
+    - If the ID is invalid, return an empty list.
+    - If it's a video, return [video_id].
+    - If it's a playlist, return all video IDs in the playlist.
+    """
+    if type == "video":
+        url = f"https://www.googleapis.com/youtube/v3/videos"
+        params = {
+            "part": "status",
+            "id": id,
+            "key": YOUTUBE_API_KEY,
+        }
+    elif type == "playlist":
+        url = "https://www.googleapis.com/youtube/v3/playlistItems"
+        params = {
+            "part": "contentDetails",
+            "playlistId": id,
+            "maxResults": 50,
+            "key": YOUTUBE_API_KEY,
+        }
+    else:
+        return []
+
+    video_ids = []
+    next_page_token = None
+
+    while True:
+        response = requests.get(url, params=params)
+        data = response.json()
+
+        # Invalid video or playlist
+        if not data.get("items"):
+            return []
+
+        if type == "video":
+            return [id]
+
+        for item in data["items"]:
+            video_ids.append(item["contentDetails"]["videoId"])
+
+        # Check for more pages, API only gets 50 videos at a time
+        next_page_token = data.get("nextPageToken")
+        if not next_page_token:
+            break
+        params["pageToken"] = next_page_token
+
+    return video_ids
