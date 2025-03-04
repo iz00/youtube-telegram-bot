@@ -9,6 +9,7 @@ from telegram.ext import (
     filters,
 )
 from config import BOT_TOKEN
+from helpers import is_valid_youtube_url_format, get_type_id_url, get_videos_urls
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -36,12 +37,39 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return URL
 
 
-# TODO: validate and determine wheter video or playlist
 async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.replace(" ", "")
 
+    if not is_valid_youtube_url_format(url):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: Invalid YouTube URL format. Please send a valid video or playlist URL.",
+        )
+        return URL
+
+    url_info = get_type_id_url(url)
+
+    if "error" in url_info:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: Invalid YouTube URL. Please send a valid video or playlist URL.",
+        )
+        return URL
+
+    videos_urls = get_videos_urls(url_info["type"], url_info["id"])
+
+    if not videos_urls:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: Unavailable YouTube URL. Please send a valid video or playlist URL.",
+        )
+        return URL
+
+    context.user_data["url_info"] = url_info
+    context.user_data["videos_urls"] = videos_urls
+
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=f"URL received: {url}."
+        chat_id=update.effective_chat.id, text=f"Videos URLs: {videos_urls}."
     )
 
     return ConversationHandler.END
@@ -67,7 +95,7 @@ if __name__ == "__main__":
         states={
             URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_url)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
     )
 
     application.add_handler(help_handler)
