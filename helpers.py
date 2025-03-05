@@ -76,3 +76,31 @@ def get_videos_urls(type, id):
         return []
 
     return []
+
+
+def is_video_available(video_url):
+    """Returns True if the video is available (not hidden, blocked, removed or private)."""
+    ydl_opts = {
+        "quiet": True,
+        "noprogress": True,
+        "extract_flat": True,
+        "force_generic_extractor": True,
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.extract_info(video_url, download=False)
+        return True
+    except yt_dlp.utils.DownloadError:
+        return False
+
+
+def get_hidden_playlist_videos(videos_urls):
+    """Return a list of video URLs that are hidden/unavailable in a playlist."""
+    hidden_videos = []
+
+    for url in videos_urls:
+        if not is_video_available(url):
+            hidden_videos.append(url)
+
+    return hidden_videos
