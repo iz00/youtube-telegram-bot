@@ -2,6 +2,7 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     ApplicationBuilder,
+    CallbackQueryHandler,
     ContextTypes,
     CommandHandler,
     ConversationHandler,
@@ -14,6 +15,7 @@ from helpers import (
     get_type_id_url,
     get_videos_urls,
     get_hidden_playlist_videos,
+    parse_video_selection,
 )
 
 logging.basicConfig(
@@ -21,7 +23,7 @@ logging.basicConfig(
 )
 
 # ConversationHandler states
-URL = range(1)
+URL, SELECT_VIDEOS = range(2)
 
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -102,6 +104,44 @@ async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ),
     )
 
+    return SELECT_VIDEOS
+
+
+async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Processes user's selection of videos from the playlist."""
+    query = update.callback_query
+
+    # If user didn't click 'All' button
+    if not query:
+        user_input = update.message.text.replace(" ", "")
+        selected_indices = parse_video_selection(
+            user_input, len(context.user_data["videos_urls"])
+        )
+
+        if not selected_indices:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Invalid selection. Please try again.\n"
+                "Choose which videos you want (e.g., 2, 4-7, 9). Or click 'All' to get all videos.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(text="All", callback_data="all")]]
+                ),
+            )
+            return SELECT_VIDEOS
+
+        context.user_data["playlist_available_videos"] = context.user_data[
+            "videos_urls"
+        ]
+
+        context.user_data["videos_urls"] = [
+            context.user_data["videos_urls"][i - 1] for i in selected_indices
+        ]
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"You selected the videos: {context.user_data['videos_urls']}.",
+    )
+
     return ConversationHandler.END
 
 
@@ -124,6 +164,12 @@ if __name__ == "__main__":
         entry_points=[CommandHandler("start", start)],
         states={
             URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_url)],
+            SELECT_VIDEOS: [
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND, receive_video_selection
+                ),
+                CallbackQueryHandler(receive_video_selection, pattern="^all$"),
+            ],
         },
         fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
     )
