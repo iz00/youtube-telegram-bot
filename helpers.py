@@ -104,3 +104,25 @@ def get_hidden_playlist_videos(videos_urls):
             hidden_videos.append(url)
 
     return hidden_videos
+
+
+def parse_video_selection(selection, max_length):
+    """Converts a user input string (e.g., "2, 4-7, 9") into a list of valid indices."""
+    indices = set()
+    try:
+        parts = selection.split(",")
+        for part in parts:
+            if "-" in part:
+                start, end = map(int, part.split("-"))
+                if start > end or start < 1 or end > max_length:
+                    return None
+                indices.update(range(start, end + 1))
+            else:
+                index = int(part)
+                if index < 1 or index > max_length:
+                    return None
+                indices.add(index)
+    except ValueError:
+        return None
+
+    return sorted(indices)
