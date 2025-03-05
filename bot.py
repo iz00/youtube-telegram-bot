@@ -1,5 +1,5 @@
 import logging
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
@@ -9,7 +9,12 @@ from telegram.ext import (
     filters,
 )
 from config import BOT_TOKEN
-from helpers import is_valid_youtube_url_format, get_type_id_url, get_videos_urls
+from helpers import (
+    is_valid_youtube_url_format,
+    get_type_id_url,
+    get_videos_urls,
+    get_hidden_playlist_videos,
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -38,6 +43,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Receives a YouTube URL, validates it, and routes accordingly."""
     url = update.message.text.replace(" ", "")
 
     if not is_valid_youtube_url_format(url):
@@ -68,8 +74,32 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["url_info"] = url_info
     context.user_data["videos_urls"] = videos_urls
 
+    if url_info["type"] == "playlist":
+        return await handle_playlist(update, context)
+
+    return ConversationHandler.END
+
+
+async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles playlist processing by fetching videos and asking user to select."""
+
+    hidden_videos = get_hidden_playlist_videos(context.user_data["videos_urls"])
+
+    if hidden_videos:
+        context.user_data["playlist_hidden_videos"] = hidden_videos
+
+        # Keep only avaliable videos in videos_urls
+        context.user_data["videos_urls"] = [
+            url for url in context.user_data["videos_urls"] if url not in hidden_videos
+        ]
+
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=f"Videos URLs: {videos_urls}."
+        chat_id=update.effective_chat.id,
+        text=f"This playlist has {len(context.user_data['videos_urls'])} available videos.\n"
+        "Choose which videos you want (e.g., 2, 4-7, 9). Or click 'All' to get all videos.",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton(text="All", callback_data="all")]]
+        ),
     )
 
     return ConversationHandler.END
