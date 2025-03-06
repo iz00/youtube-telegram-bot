@@ -23,7 +23,7 @@ logging.basicConfig(
 )
 
 # ConversationHandler states
-URL, SELECT_VIDEOS = range(2)
+URL, SELECT_VIDEOS, SELECT_OPTIONS = range(3)
 
 # Options available to users
 VIDEO_OPTIONS = [
@@ -99,7 +99,8 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if url_info["type"] == "playlist":
         return await handle_playlist(update, context)
 
-    return ConversationHandler.END
+    context.user_data["selected_options"] = set()
+    return await show_options_menu(update, context)
 
 
 async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -162,7 +163,8 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
         text=f"You selected the videos: {context.user_data['videos_urls']}.",
     )
 
-    return ConversationHandler.END
+    context.user_data["selected_options"] = set()
+    return await show_options_menu(update, context)
 
 
 def build_options_keyboard(selected_options, is_playlist):
@@ -201,6 +203,52 @@ def build_options_keyboard(selected_options, is_playlist):
     return InlineKeyboardMarkup(keyboard)
 
 
+async def show_options_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show options selection menu."""
+    is_playlist = context.user_data["url_info"]["type"] == "playlist"
+    keyboard = build_options_keyboard(
+        context.user_data["selected_options"], is_playlist
+    )
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Select the options you want:",
+        reply_markup=keyboard,
+    )
+    return SELECT_OPTIONS
+
+
+async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle user selection/unselection of options."""
+    query = update.callback_query
+    option = query.data
+    is_playlist = context.user_data["url_info"]["type"] == "playlist"
+    options = VIDEO_OPTIONS + PLAYLIST_OPTIONS if is_playlist else VIDEO_OPTIONS
+
+    if option == "done":
+        await query.message.edit_text(
+            f"You selected: {', '.join(context.user_data['selected_options'])}"
+        )
+        return ConversationHandler.END
+
+    if option == "select_all":
+        if set(options).issubset(context.user_data["selected_options"]):
+            context.user_data["selected_options"].clear()
+        else:
+            context.user_data["selected_options"] = set(options)
+    else:
+        if option in context.user_data["selected_options"]:
+            context.user_data["selected_options"].remove(option)
+        else:
+            context.user_data["selected_options"].add(option)
+
+    keyboard = build_options_keyboard(
+        context.user_data["selected_options"], is_playlist
+    )
+    await query.message.edit_reply_markup(reply_markup=keyboard)
+
+    return SELECT_OPTIONS
+
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Finishes the conversation."""
     await context.bot.send_message(
@@ -226,6 +274,7 @@ if __name__ == "__main__":
                 ),
                 CallbackQueryHandler(receive_video_selection, pattern="^all$"),
             ],
+            SELECT_OPTIONS: [CallbackQueryHandler(receive_option_selection)],
         },
         fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
     )
