@@ -198,7 +198,8 @@ def build_options_keyboard(selected_options, is_playlist):
         [InlineKeyboardButton(select_all_label, callback_data="select_all")]
     )
 
-    keyboard.append([InlineKeyboardButton("✅ Done", callback_data="done")])
+    if selected_options:
+        keyboard.append([InlineKeyboardButton("✅ Done", callback_data="done")])
 
     return InlineKeyboardMarkup(keyboard)
 
