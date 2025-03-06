@@ -25,6 +25,26 @@ logging.basicConfig(
 # ConversationHandler states
 URL, SELECT_VIDEOS = range(2)
 
+# Options available to users
+VIDEO_OPTIONS = [
+    "title",
+    "duration",
+    "views count",
+    "likes count",
+    "comments count",
+    "upload date",
+    "description",
+    "uploader",
+    "thumbnail",
+]
+PLAYLIST_OPTIONS = [
+    "playlist title",
+    "playlist description",
+    "playlist thumbnail",
+    "playlist uploader",
+    "playlist hidden videos",
+]
+
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Triggered by /help command, send instructions about the bot to user."""
@@ -143,6 +163,42 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
     )
 
     return ConversationHandler.END
+
+
+def build_options_keyboard(selected_options, is_playlist):
+    """Build inline keyboard with options.
+    Add an indication on already selected options."""
+    options = VIDEO_OPTIONS + PLAYLIST_OPTIONS if is_playlist else VIDEO_OPTIONS
+    keyboard = []
+
+    # Add option buttons in two columns
+    buttons_row = []
+    for option in options:
+        selected_indication = "✔️ " if option in selected_options else ""
+        buttons_row.append(
+            InlineKeyboardButton(
+                f"{selected_indication}{option.title()}", callback_data=option
+            )
+        )
+
+        if len(buttons_row) == 2:
+            keyboard.append(buttons_row)
+            buttons_row = []
+
+    # If there's an odd number of options, append the last row
+    if buttons_row:
+        keyboard.append(buttons_row)
+
+    # Add a "Select All"/"Deselect All" button
+    all_selected = set(options).issubset(selected_options)
+    select_all_label = "Select All" if not all_selected else "Deselect All"
+    keyboard.append(
+        [InlineKeyboardButton(select_all_label, callback_data="select_all")]
+    )
+
+    keyboard.append([InlineKeyboardButton("✅ Done", callback_data="done")])
+
+    return InlineKeyboardMarkup(keyboard)
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
