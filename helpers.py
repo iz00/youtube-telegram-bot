@@ -182,3 +182,31 @@ def get_video_infos(url):
         "chapters": chapters,
         "thumbnail": info.get("thumbnail"),
     }
+
+
+def get_playlist_infos(url):
+    """Fetches playlist metadata using yt_dlp and returns a dictionary."""
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "extract_flat": False,
+        "force_generic_extractor": False,
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except yt_dlp.utils.DownloadError:
+        return None
+
+    uploader_info = info.get("uploader")
+    uploader = (
+        f"{uploader_info} ({info.get('uploader_url')})" if uploader_info else None
+    )
+
+    return {
+        "playlist title": info.get("title"),
+        "playlist description": info.get("description"),
+        "playlist uploader": uploader,
+    }
