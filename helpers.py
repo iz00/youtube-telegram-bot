@@ -126,3 +126,59 @@ def parse_video_selection(selection, max_length):
         return None
 
     return sorted(indices)
+
+
+def format_seconds(seconds):
+    """Convert seconds into hh:mm:ss or mm:ss format."""
+    seconds = int(seconds)
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    if hours > 0:
+        return f"{hours:02}:{minutes:02}:{seconds:02}"  # hh:mm:ss
+    return f"{minutes:02}:{seconds:02}"  # mm:ss
+
+
+def get_video_infos(url):
+    """Fetches video metadata using yt_dlp and returns a dictionary."""
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "extract_flat": False,
+        "force_generic_extractor": False,
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except yt_dlp.utils.DownloadError:
+        return None
+
+    uploader_info = info.get("uploader")
+    uploader = (
+        f"{uploader_info} ({info.get('uploader_url')})" if uploader_info else None
+    )
+
+    chapters_info = info.get("chapters")
+    chapters = (
+        [
+            f"{chapter['title']} ({format_seconds(chapter['start_time'])} - {format_seconds(chapter['end_time'])})"
+            for chapter in chapters_info
+        ]
+        if chapters_info
+        else None
+    )
+
+    return {
+        "title": info.get("fulltitle"),
+        "duration": info.get("duration"),
+        "views count": info.get("view_count"),
+        "likes count": info.get("like_count"),
+        "comments count": info.get("comment_count"),
+        "upload date": info.get("upload_date"),
+        "uploader": uploader,
+        "description": info.get("description"),
+        "chapters": chapters,
+        "thumbnail": info.get("thumbnail"),
+    }
