@@ -230,3 +230,23 @@ def get_playlist_infos(id):
         "playlist description": info.get("description"),
         "playlist uploader": uploader,
     }
+
+
+def escape_markdown_v2(text):
+    """Escapes special characters for Telegram Markdown V2."""
+    return re.sub(r"([_*\[\]()~`>#+\-=|{}.!])", r"\\\1", str(text))
+
+
+def format_infos(info, selected_options):
+    """Formats playlist or video infos into a message."""
+    if not info:
+        return "Error fetching infos."
+
+    infos = []
+    for option in selected_options:
+        if option in info and info[option]:
+            option_name = option.title()
+            option_value = escape_markdown_v2(info[option])
+            infos.append(f"*{option_name}:* {option_value}")
+
+    return "\n".join(infos) if infos else "No infos available."
