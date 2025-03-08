@@ -1,4 +1,5 @@
-import re, yt_dlp
+import re, yt_dlp, requests
+from config import YOUTUBE_API_KEY
 
 
 def is_valid_youtube_url_format(url):
@@ -184,26 +185,45 @@ def get_video_infos(url):
     }
 
 
-def get_playlist_infos(url):
-    """Fetches playlist metadata using yt_dlp and returns a dictionary."""
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-        "extract_flat": False,
-        "force_generic_extractor": False,
-    }
+def get_playlist_infos(id):
+    """Fetches playlist metadata using YouTube Data API v3 and returns a dictionary.
+    yt_dlp is not used because if the playlist has any unavailable videos, it will raise an error.
+    """
+    url = f"https://www.googleapis.com/youtube/v3/playlists?part=snippet&id={id}&key={YOUTUBE_API_KEY}"
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-    except yt_dlp.utils.DownloadError:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching playlist info: {e}")
         return None
 
-    uploader_info = info.get("uploader")
-    uploader = (
-        f"{uploader_info} ({info.get('uploader_url')})" if uploader_info else None
-    )
+    if "items" not in data or not data["items"]:
+        return None
+
+    info = data["items"][0]["snippet"]
+    uploader_info = info.get("channelId")
+
+    # Get channel information through yt_dlp,
+    # Because the YT Data API doesn't provide uploader's handle (@).
+    if uploader_info:
+        ydl_opts = {
+            "quiet": True,
+            "extract_flat": True,
+        }
+        channel_url = f"https://www.youtube.com/channel/{uploader_info}"
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                channel_info = ydl.extract_info(channel_url, download=False)
+        except yt_dlp.utils.DownloadError as e:
+            print(f"Error fetching channel info: {e}")
+            uploader = None
+        else:
+            uploader_name = channel_info.get("channel")
+            uploader_url = channel_info.get("uploader_url")
+            uploader = f"{uploader_name} ({uploader_url})"
 
     return {
         "playlist title": info.get("title"),
