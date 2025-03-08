@@ -233,9 +233,22 @@ async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT
     option = query.data
 
     if option == "done":
-        await query.message.edit_text(
-            f"You selected: {', '.join(context.user_data['selected_options'])}"
+        # Sort user's selected options in the correct order
+        correct_order = VIDEO_OPTIONS + PLAYLIST_OPTIONS
+        context.user_data["selected_options"] = sorted(
+            context.user_data["selected_options"],
+            key=lambda option: (
+                correct_order.index(option) if option in correct_order else float("inf")
+            ),
         )
+
+        await query.message.edit_text(
+            "You selected:\n"
+            + "\n".join(
+                option.title() for option in context.user_data["selected_options"]
+            )
+        )
+
         return ConversationHandler.END
 
     is_playlist = context.user_data["url_info"]["type"] == "playlist"
