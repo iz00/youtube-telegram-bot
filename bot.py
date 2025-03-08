@@ -16,6 +16,9 @@ from helpers import (
     get_videos_urls,
     get_hidden_playlist_videos,
     parse_video_selection,
+    get_video_infos,
+    get_playlist_infos,
+    format_infos,
 )
 
 logging.basicConfig(
@@ -249,7 +252,7 @@ async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT
             )
         )
 
-        return ConversationHandler.END
+        return await send_user_info(update, context)
 
     is_playlist = context.user_data["url_info"]["type"] == "playlist"
     options = VIDEO_OPTIONS + PLAYLIST_OPTIONS if is_playlist else VIDEO_OPTIONS
@@ -275,6 +278,40 @@ async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT
     await query.message.edit_reply_markup(reply_markup=keyboard)
 
     return SELECT_OPTIONS
+
+
+async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send the user the requested information."""
+    has_playlist_info = any(
+        "playlist" in option for option in context.user_data["selected_options"]
+    )
+
+    if has_playlist_info:
+        playlist_info = get_playlist_infos(context.user_data["url_info"]["id"])
+        if len(context.user_data.get("playlist_hidden_videos", {})) > 0:
+            playlist_info["playlist hidden videos"] = context.user_data[
+                "playlist_hidden_videos"
+            ]
+
+        message = format_infos(playlist_info, context.user_data["selected_options"])
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=message,
+            parse_mode="MarkdownV2",
+            disable_web_page_preview=True,
+        )
+
+    for video_url in context.user_data["videos_urls"]:
+        video_info = get_video_infos(video_url)
+        message = format_infos(video_info, context.user_data["selected_options"])
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=message,
+            parse_mode="MarkdownV2",
+            disable_web_page_preview=True,
+        )
+
+    return ConversationHandler.END
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
