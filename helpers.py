@@ -280,3 +280,42 @@ def format_infos(info, selected_options):
             infos.append(f"*{option_name}:* {option_value}")
 
     return "\n\n".join(infos) if infos else "No infos available."
+
+
+def split_message(message, chunk_size=4096):
+    """Splits a long message into smaller chunks, prioritizing newlines and preserving Markdown formatting."""
+    chunks = []
+
+    while message:
+        if len(message) <= chunk_size:
+            chunks.append(message)
+            break
+
+        # Try to split at the last newline within chunk_size
+        split_pos = message.rfind("\n", 0, chunk_size)
+
+        # If no newline found, find a space instead
+        if split_pos == -1:
+            split_pos = message.rfind(" ", 0, chunk_size)
+
+        # Force split at chunk_size
+        if split_pos == -1:
+            split_pos = chunk_size
+
+        chunk = message[:split_pos]
+
+        # Ensure don't split in the middle of a Markdown entity
+        open_bold = chunk.count("*") % 2 != 0
+        open_italic = chunk.count("_") % 2 != 0
+        open_bolditalic = chunk.count("***") % 2 != 0
+
+        if open_bold or open_italic or open_bolditalic:
+            safe_split = re.search(r"([*_]+)", chunk[::-1])
+            if safe_split:
+                split_pos -= safe_split.start() + 1
+                chunk = message[:split_pos]
+
+        chunks.append(chunk.strip())
+        message = message[split_pos:].lstrip()
+
+    return chunks

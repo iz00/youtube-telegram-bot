@@ -19,6 +19,7 @@ from helpers import (
     get_video_infos,
     get_playlist_infos,
     format_infos,
+    split_message,
 )
 
 logging.basicConfig(
@@ -294,22 +295,25 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
 
         message = format_infos(playlist_info, context.user_data["selected_options"])
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=message,
-            parse_mode="MarkdownV2",
-            disable_web_page_preview=True,
-        )
+        for chunk in split_message(message):
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=chunk,
+                parse_mode="MarkdownV2",
+                disable_web_page_preview=True,
+            )
 
     for video_url in context.user_data["videos_urls"]:
         video_info = get_video_infos(video_url)
         message = format_infos(video_info, context.user_data["selected_options"])
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=message,
-            parse_mode="MarkdownV2",
-            disable_web_page_preview=True,
-        )
+
+        for chunk in split_message(message):
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=chunk,
+                parse_mode="MarkdownV2",
+                disable_web_page_preview=True,
+            )
 
     return ConversationHandler.END
 
