@@ -1,4 +1,5 @@
 import re, yt_dlp, requests
+from datetime import datetime
 from config import YOUTUBE_API_KEY
 
 
@@ -140,6 +141,14 @@ def format_seconds(seconds):
     return f"{minutes:02}:{seconds:02}"  # mm:ss
 
 
+def format_date(date):
+    """Convert date from YYYYMMDD to DD/MM/YYYY format."""
+    try:
+        return f"{datetime.strptime(date, '%Y%m%d').strftime('%m/%d/%Y')} (mm/dd/yyyy)"
+    except ValueError:
+        return date
+
+
 def get_video_infos(url):
     """Fetches video metadata using yt_dlp and returns a dictionary."""
     ydl_opts = {
@@ -246,7 +255,28 @@ def format_infos(info, selected_options):
     for option in selected_options:
         if option in info and info[option]:
             option_name = option.title()
-            option_value = escape_markdown_v2(info[option])
+
+            match option:
+                case "duration":
+                    option_value = format_seconds(info[option])
+                case "upload date":
+                    option_value = format_date(info[option])
+                case (
+                    "title"
+                    | "playlist title"
+                    | "description"
+                    | "playlist description"
+                    | "uploader"
+                    | "playlist uploader"
+                    | "thumbnail"
+                ):
+                    option_value = f"\n{info[option]}"
+                case "chapters" | "playlist hidden videos":
+                    option_value = "\n" + "\n".join(info[option])
+                case _:
+                    option_value = info[option]
+
+            option_value = escape_markdown_v2(option_value)
             infos.append(f"*{option_name}:* {option_value}")
 
-    return "\n".join(infos) if infos else "No infos available."
+    return "\n\n".join(infos) if infos else "No infos available."
