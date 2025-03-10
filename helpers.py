@@ -1,5 +1,7 @@
 import re, yt_dlp, requests
 from datetime import datetime
+from io import BytesIO
+from PIL import Image
 from config import YOUTUBE_API_KEY
 
 
@@ -319,3 +321,17 @@ def split_message(message, chunk_size=4096):
         message = message[split_pos:].lstrip()
 
     return chunks
+
+
+def process_image(image_data):
+    """Converts an image to JPEG format."""
+    try:
+        image = Image.open(BytesIO(image_data))
+        image = image.convert("RGB")
+        new_image = BytesIO()
+        image.save(new_image, format="JPEG")
+        new_image.seek(0)
+        return new_image
+    except Exception as e:
+        print(f"Error processing image: {e}")
+        return None
