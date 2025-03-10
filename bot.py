@@ -1,5 +1,6 @@
-import logging
+import logging, requests
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.error import BadRequest
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
@@ -20,6 +21,7 @@ from helpers import (
     get_playlist_infos,
     format_infos,
     split_message,
+    process_image,
 )
 
 logging.basicConfig(
@@ -281,6 +283,47 @@ async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT
     return SELECT_OPTIONS
 
 
+async def send_thumbnail_photo(update, context, thumbnail_url, caption):
+    """Download the thumbnail and try to send it as a photo with caption.
+    Return True if thumbnail was succesfully sent with caption.
+    Else, return False, and, if possible, send only the thumbnail in a message."""
+    try:
+        response = requests.get(thumbnail_url, stream=True)
+        response.raise_for_status()
+        original_image_data = response.content
+    except requests.exceptions.RequestException as e:
+        print(f"Error downloading thumbnail: {e}")
+        return False
+
+    processed_image = process_image(original_image_data)
+    if not processed_image:
+        return False
+
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=processed_image,
+            caption=caption,
+            parse_mode="MarkdownV2",
+        )
+        return True
+
+    # Limit for Telegram caption length is 1024 characters
+    # Some videos have long captions, so send only the thumbnail
+    except BadRequest as e:
+        print(f"Error sending photo with caption: {e}")
+
+        processed_image = process_image(original_image_data)
+        if not processed_image:
+            return False
+
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=processed_image,
+        )
+        return False
+
+
 async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send the user the requested information."""
     has_playlist_info = any(
@@ -305,8 +348,20 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for video_url in context.user_data["videos_urls"]:
         video_info = get_video_infos(video_url)
+        send_thumbnail = "thumbnail" in context.user_data[
+            "selected_options"
+        ] and video_info.get("thumbnail")
+
         message = format_infos(video_info, context.user_data["selected_options"])
 
+        if send_thumbnail:
+            sent_thumbnail_with_caption = await send_thumbnail_photo(
+                update, context, video_info["thumbnail"], message
+            )
+            if sent_thumbnail_with_caption:
+                continue
+
+        # If thumbnail wasn't sent with caption, or if send_thumbnail was False, send the text message
         for chunk in split_message(message):
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
