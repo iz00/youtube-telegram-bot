@@ -244,6 +244,15 @@ def get_playlist_infos(id):
     }
 
 
+def format_videos_urls(videos_urls, limit=10):
+    """Formats a list of video URLs into a message."""
+    formatted_videos_urls = "\n".join(f"• {url}" for url in videos_urls[:limit])
+    if len(videos_urls) > limit:
+        formatted_videos_urls += f"\n... And another {len(videos_urls) - limit} videos."
+
+    return formatted_videos_urls
+
+
 def escape_markdown_v2(text):
     """Escapes special characters for Telegram Markdown V2."""
     return re.sub(r"([_*\[\]()~`>#+\-=|{}.!])", r"\\\1", str(text))

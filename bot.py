@@ -19,6 +19,7 @@ from helpers import (
     parse_video_selection,
     get_video_infos,
     get_playlist_infos,
+    format_videos_urls,
     format_infos,
     split_message,
     process_image,
@@ -199,7 +200,8 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=f"You selected the videos: {context.user_data['videos_urls']}.",
+        text=f"You selected the videos:\n{format_videos_urls(context.user_data['videos_urls'])}",
+        disable_web_page_preview=True,
     )
 
     context.user_data["selected_options"] = set()
