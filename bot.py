@@ -80,7 +80,7 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 await context.bot.delete_message(
                     chat_id=update.effective_chat.id,
-                    message_id=context.user_data[message]
+                    message_id=context.user_data[message],
                 )
             # Message might have already been deleted
             except BadRequest:
@@ -155,6 +155,18 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
     """Processes user's selection of videos from the playlist."""
     query = update.callback_query
 
+    # Delete previous wrong and error messages (if exists)
+    for message in ["last_error_message_id", "last_invalid_user_message_id"]:
+        if message in context.user_data:
+            try:
+                await context.bot.delete_message(
+                    chat_id=update.effective_chat.id,
+                    message_id=context.user_data[message],
+                )
+            # Message might have already been deleted
+            except BadRequest:
+                pass
+
     # If user didn't click 'All' button
     if not query:
         user_input = update.message.text.replace(" ", "")
@@ -163,13 +175,13 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
         )
 
         if not selected_indices:
-            await context.bot.send_message(
+            error_message = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text="Invalid selection. Please try again.\n"
-                "Choose which videos you want (e.g., 2, 4-7, 9). Or click 'All' to get all videos.",
-                reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(text="All", callback_data="all")]]
-                ),
+                text="Invalid selection. Please try again.",
+            )
+            context.user_data["last_error_message_id"] = error_message.message_id
+            context.user_data["last_invalid_user_message_id"] = (
+                update.message.message_id
             )
             return SELECT_VIDEOS
 
@@ -180,6 +192,10 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
         context.user_data["videos_urls"] = [
             context.user_data["videos_urls"][i - 1] for i in selected_indices
         ]
+
+    # Delete previous wrong and error messages (if exists) from user_data
+    context.user_data.pop("last_error_message_id", None)
+    context.user_data.pop("last_invalid_user_message_id", None)
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
