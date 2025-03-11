@@ -74,30 +74,47 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Receives a YouTube URL, validates it, and routes accordingly."""
     url = update.message.text.replace(" ", "")
 
+    # Delete previous wrong and error messages (if exists)
+    for message in ["last_error_message_id", "last_invalid_user_message_id"]:
+        if message in context.user_data:
+            try:
+                await context.bot.delete_message(
+                    chat_id=update.effective_chat.id,
+                    message_id=context.user_data[message]
+                )
+            # Message might have already been deleted
+            except BadRequest:
+                pass
+
+    error_message = None
+
     if not is_valid_youtube_url_format(url):
-        await context.bot.send_message(
+        error_message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Error: Invalid YouTube URL format. Please send a valid video or playlist URL.",
         )
-        return URL
 
-    url_info = get_type_id_url(url)
-
-    if "error" in url_info:
-        await context.bot.send_message(
+    elif "error" in (url_info := get_type_id_url(url)):
+        error_message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Error: Invalid YouTube URL. Please send a valid video or playlist URL.",
         )
-        return URL
 
-    videos_urls = get_videos_urls(url_info["type"], url_info["id"])
-
-    if not videos_urls:
-        await context.bot.send_message(
+    elif not (videos_urls := get_videos_urls(url_info["type"], url_info["id"])):
+        error_message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Error: Unavailable YouTube URL. Please send a valid video or playlist URL.",
         )
+
+    # If there was an error, store message IDs and return
+    if error_message:
+        context.user_data["last_error_message_id"] = error_message.message_id
+        context.user_data["last_invalid_user_message_id"] = update.message.message_id
         return URL
+
+    # Delete previous wrong and error messages (if exists) from user_data
+    context.user_data.pop("last_error_message_id", None)
+    context.user_data.pop("last_invalid_user_message_id", None)
 
     context.user_data["url_info"] = url_info
     context.user_data["videos_urls"] = videos_urls
