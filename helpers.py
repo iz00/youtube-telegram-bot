@@ -167,10 +167,10 @@ def get_video_infos(url):
     except yt_dlp.utils.DownloadError:
         return None
 
-    uploader_info = info.get("uploader")
-    uploader = (
-        f"{uploader_info} ({info.get('uploader_url')})" if uploader_info else None
-    )
+    uploader = info.get("uploader")
+    if uploader:
+        uploader_url = info.get("uploader_url")
+        uploader = f"{uploader} ({uploader_url})" if uploader_url else uploader
 
     chapters_info = info.get("chapters")
     chapters = (
@@ -232,9 +232,10 @@ def get_playlist_infos(id):
             print(f"Error fetching channel info: {e}")
             uploader = None
         else:
-            uploader_name = channel_info.get("channel")
-            uploader_url = channel_info.get("uploader_url")
-            uploader = f"{uploader_name} ({uploader_url})"
+            uploader = channel_info.get("channel")
+            if uploader:
+                uploader_url = channel_info.get("uploader_url")
+                uploader = f"{uploader} ({uploader_url})" if uploader_url else uploader
 
     return {
         "playlist title": info.get("title"),
