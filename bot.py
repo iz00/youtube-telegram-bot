@@ -61,6 +61,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Triggered by /start command, start conversation with user (get URL and fetch details)."""
+    context.user_data.clear()
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Send a YouTube video or playlist URL.\n",
