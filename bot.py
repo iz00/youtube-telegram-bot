@@ -1,5 +1,10 @@
 import logging, requests
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
+    Update,
+)
 from telegram.error import BadRequest
 from telegram.ext import (
     ApplicationBuilder,
@@ -148,24 +153,21 @@ async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
             url for url in context.user_data["videos_urls"] if url not in hidden_videos
         ]
 
-    video_selection_message = await context.bot.send_message(
+    await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=f"This playlist has {len(context.user_data['videos_urls'])} available videos.\n"
         "Choose which videos you want (e.g., 2, 4-7, 9).\n"
-        "Or click 'All' to get all videos.",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text="All", callback_data="all")]]
+        "Or choose 'All' to get all videos.",
+        reply_markup=ReplyKeyboardMarkup(
+            [["All"]], one_time_keyboard=True, resize_keyboard=True
         ),
     )
-
-    context.user_data["video_selection_message"] = video_selection_message.message_id
 
     return SELECT_VIDEOS
 
 
 async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Processes user's selection of videos from the playlist."""
-    query = update.callback_query
 
     # Delete previous wrong and error messages (if exists)
     for message in ["last_error_message_id", "last_invalid_user_message_id"]:
@@ -180,7 +182,7 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
                 pass
 
     # If user didn't click 'All' button
-    if not query:
+    if not update.message.text.lower() == "all":
         user_input = update.message.text.replace(" ", "")
         selected_indices = parse_video_selection(
             user_input, len(context.user_data["videos_urls"])
@@ -208,14 +210,6 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
     # Delete previous wrong and error messages (if exists) from user_data
     context.user_data.pop("last_error_message_id", None)
     context.user_data.pop("last_invalid_user_message_id", None)
-
-    # Edit message with "All" button so it can't be used anymore
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=context.user_data["video_selection_message"],
-        text=f"This playlist has {len(context.user_data['videos_urls'])} available videos.\n",
-    )
-    context.user_data.pop("video_selection_message", None)
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -486,7 +480,6 @@ if __name__ == "__main__":
                 MessageHandler(
                     filters.TEXT & ~filters.COMMAND, receive_video_selection
                 ),
-                CallbackQueryHandler(receive_video_selection, pattern="^all$"),
             ],
             SELECT_OPTIONS: [CallbackQueryHandler(receive_option_selection)],
         },
