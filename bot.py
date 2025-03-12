@@ -148,14 +148,17 @@ async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
             url for url in context.user_data["videos_urls"] if url not in hidden_videos
         ]
 
-    await context.bot.send_message(
+    video_selection_message = await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=f"This playlist has {len(context.user_data['videos_urls'])} available videos.\n"
-        "Choose which videos you want (e.g., 2, 4-7, 9). Or click 'All' to get all videos.",
+        "Choose which videos you want (e.g., 2, 4-7, 9).\n"
+        "Or click 'All' to get all videos.",
         reply_markup=InlineKeyboardMarkup(
             [[InlineKeyboardButton(text="All", callback_data="all")]]
         ),
     )
+
+    context.user_data["video_selection_message"] = video_selection_message.message_id
 
     return SELECT_VIDEOS
 
@@ -205,6 +208,14 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
     # Delete previous wrong and error messages (if exists) from user_data
     context.user_data.pop("last_error_message_id", None)
     context.user_data.pop("last_invalid_user_message_id", None)
+
+    # Edit message with "All" button so it can't be used anymore
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=context.user_data["video_selection_message"],
+        text=f"This playlist has {len(context.user_data['videos_urls'])} available videos.\n",
+    )
+    context.user_data.pop("video_selection_message", None)
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
