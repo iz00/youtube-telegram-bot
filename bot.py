@@ -51,6 +51,14 @@ PLAYLIST_OPTIONS = [
     "playlist uploader",
 ]
 
+# Options that have statistics
+OPTIONS_WITH_STATS = [
+    "duration",
+    "views count",
+    "likes count",
+    "comments count",
+]
+
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Triggered by /help command, send instructions about the bot to user."""
@@ -382,6 +390,17 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 disable_web_page_preview=True,
             )
 
+    total_stats = None
+
+    if (video_count := len(context.user_data["videos_urls"])) > 1:
+        selected_stats = [
+            stat
+            for stat in OPTIONS_WITH_STATS
+            if stat in context.user_data["selected_options"]
+        ]
+        if selected_stats:
+            total_stats = {option: 0 for option in selected_stats}
+
     for video_url in context.user_data["videos_urls"]:
         video_info = get_video_infos(video_url)
         send_thumbnail = "thumbnail" in context.user_data[
@@ -405,6 +424,30 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="MarkdownV2",
                 disable_web_page_preview=True,
             )
+
+        if video_count > 1 and selected_stats:
+            for stat in selected_stats:
+                if isinstance(video_info.get(stat), (int, float)):
+                    total_stats[stat] += video_info[stat]
+
+    if total_stats and any(value > 0 for value in total_stats.values()):
+        formatted_total_message = format_infos(total_stats, selected_stats)
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="*Total Statistics:*\n\n" + formatted_total_message,
+            parse_mode="MarkdownV2",
+        )
+
+        average_stats = {
+            stat: int(value) if value.is_integer() else round(value, 2)
+            for stat, value in ((s, total_stats[s] / video_count) for s in total_stats)
+        }
+        formatted_average_message = format_infos(average_stats, selected_stats)
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="*Average Statistics per Video:*\n\n" + formatted_average_message,
+            parse_mode="MarkdownV2",
+        )
 
     return ConversationHandler.END
 
