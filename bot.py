@@ -431,34 +431,35 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if selected_stats:
             total_stats = {option: 0 for option in selected_stats}
 
-    for video_url in context.user_data["videos_urls"]:
-        video_info = get_video_infos(video_url)
-        send_thumbnail = "thumbnail" in context.user_data[
-            "selected_options"
-        ] and video_info.get("thumbnail")
+    if any(option in VIDEO_OPTIONS for option in context.user_data["selected_options"]):
+        for video_url in context.user_data["videos_urls"]:
+            video_info = get_video_infos(video_url)
+            send_thumbnail = "thumbnail" in context.user_data[
+                "selected_options"
+            ] and video_info.get("thumbnail")
 
-        message = format_infos(video_info, context.user_data["selected_options"])
+            message = format_infos(video_info, context.user_data["selected_options"])
 
-        if send_thumbnail:
-            sent_thumbnail_with_caption = await send_thumbnail_photo(
-                update, context, video_info["thumbnail"], message
-            )
-            if sent_thumbnail_with_caption:
-                continue
+            if send_thumbnail:
+                sent_thumbnail_with_caption = await send_thumbnail_photo(
+                    update, context, video_info["thumbnail"], message
+                )
+                if sent_thumbnail_with_caption:
+                    continue
 
-        # If thumbnail wasn't sent with caption, or if send_thumbnail was False, send the text message
-        for chunk in split_message(message):
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=chunk,
-                parse_mode="MarkdownV2",
-                disable_web_page_preview=True,
-            )
+            # If thumbnail wasn't sent with caption, or if send_thumbnail was False, send the text message
+            for chunk in split_message(message):
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=chunk,
+                    parse_mode="MarkdownV2",
+                    disable_web_page_preview=True,
+                )
 
-        if video_count > 1 and selected_stats:
-            for stat in selected_stats:
-                if isinstance(video_info.get(stat), (int, float)):
-                    total_stats[stat] += video_info[stat]
+            if video_count > 1 and selected_stats:
+                for stat in selected_stats:
+                    if isinstance(video_info.get(stat), (int, float)):
+                        total_stats[stat] += video_info[stat]
 
     if total_stats and any(value > 0 for value in total_stats.values()):
         formatted_total_message = format_infos(total_stats, selected_stats)
