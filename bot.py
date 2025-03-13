@@ -235,10 +235,12 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
     return await show_options_menu(update, context)
 
 
-def build_options_keyboard(selected_options, is_playlist, has_hidden_videos):
+def build_options_keyboard(
+    selected_options, has_videos, is_playlist, has_hidden_videos
+):
     """Build inline keyboard with options.
     Add an indication on already selected options."""
-    options = VIDEO_OPTIONS[:]
+    options = VIDEO_OPTIONS[:] if has_videos else []
 
     if is_playlist:
         options += PLAYLIST_OPTIONS
@@ -284,7 +286,10 @@ async def show_options_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     has_hidden_videos = len(context.user_data.get("playlist_hidden_videos", {})) > 0
 
     keyboard = build_options_keyboard(
-        context.user_data["selected_options"], is_playlist, has_hidden_videos
+        context.user_data["selected_options"],
+        bool(context.user_data["videos_urls"]),
+        is_playlist,
+        has_hidden_videos,
     )
 
     await context.bot.send_message(
@@ -320,12 +325,15 @@ async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT
 
         return await send_user_info(update, context)
 
+    has_videos = bool(context.user_data["videos_urls"])
     is_playlist = context.user_data["url_info"]["type"] == "playlist"
-    options = VIDEO_OPTIONS + PLAYLIST_OPTIONS if is_playlist else VIDEO_OPTIONS
+    has_hidden_videos = bool(context.user_data.get("playlist_hidden_videos"))
 
-    has_hidden_videos = len(context.user_data.get("playlist_hidden_videos", {})) > 0
-    if has_hidden_videos:
-        options.append("playlist hidden videos")
+    options = VIDEO_OPTIONS[:] if has_videos else []
+    if is_playlist:
+        options += PLAYLIST_OPTIONS
+        if has_hidden_videos:
+            options.append("playlist hidden videos")
 
     if option == "select_all":
         if set(options).issubset(context.user_data["selected_options"]):
@@ -339,7 +347,10 @@ async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT
             context.user_data["selected_options"].add(option)
 
     keyboard = build_options_keyboard(
-        context.user_data["selected_options"], is_playlist, has_hidden_videos
+        context.user_data["selected_options"],
+        has_videos,
+        is_playlist,
+        has_hidden_videos,
     )
     await query.message.edit_reply_markup(reply_markup=keyboard)
 
