@@ -385,6 +385,7 @@ async def send_thumbnail_photo(update, context, thumbnail_url, caption):
             photo=processed_image,
             caption=caption,
             parse_mode="MarkdownV2",
+            disable_notification=True,
         )
         return True
 
@@ -400,6 +401,7 @@ async def send_thumbnail_photo(update, context, thumbnail_url, caption):
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=processed_image,
+            disable_notification=True,
         )
         return False
 
@@ -424,6 +426,7 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=chunk,
                 parse_mode="MarkdownV2",
                 disable_web_page_preview=True,
+                disable_notification=True,
             )
 
     total_stats = None
@@ -460,6 +463,7 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     text=chunk,
                     parse_mode="MarkdownV2",
                     disable_web_page_preview=True,
+                    disable_notification=True,
                 )
 
             if video_count > 1 and selected_stats:
@@ -473,6 +477,7 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=update.effective_chat.id,
             text="*Total Statistics:*\n\n" + formatted_total_message,
             parse_mode="MarkdownV2",
+            disable_notification=True,
         )
 
         average_stats = {
@@ -484,6 +489,7 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=update.effective_chat.id,
             text="*Average Statistics per Video:*\n\n" + formatted_average_message,
             parse_mode="MarkdownV2",
+            disable_notification=True,
         )
 
     context.user_data["selected_options"] = set()
