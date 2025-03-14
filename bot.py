@@ -277,6 +277,8 @@ def build_options_keyboard(
     if selected_options:
         keyboard.append([InlineKeyboardButton("✅ Done", callback_data="done")])
 
+    keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel")])
+
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -324,6 +326,10 @@ async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT
         )
 
         return await send_user_info(update, context)
+
+    elif option == "cancel":
+        await query.message.edit_text("Process finished. Send /start to begin again.")
+        return ConversationHandler.END
 
     has_videos = bool(context.user_data["videos_urls"])
     is_playlist = context.user_data["url_info"]["type"] == "playlist"
@@ -480,7 +486,8 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="MarkdownV2",
         )
 
-    return ConversationHandler.END
+    context.user_data["selected_options"] = set()
+    return await show_options_menu(update, context)
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
