@@ -191,10 +191,14 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
         await query.answer()
         if query.data == "none":
             context.user_data["videos_urls"] = []
+        elif query.data == "all":
+            context.user_data["videos_urls"] = context.user_data[
+                "playlist_available_videos"
+            ]
     else:
         user_input = update.message.text.replace(" ", "")
         selected_indices = parse_video_selection(
-            user_input, len(context.user_data["videos_urls"])
+            user_input, len(context.user_data["playlist_available_videos"])
         )
 
         if not selected_indices:
@@ -209,7 +213,8 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
             return SELECT_VIDEOS
 
         context.user_data["videos_urls"] = [
-            context.user_data["videos_urls"][i - 1] for i in selected_indices
+            context.user_data["playlist_available_videos"][i - 1]
+            for i in selected_indices
         ]
 
     # Delete previous wrong and error messages (if exists) from user_data
@@ -229,6 +234,11 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
             chat_id=update.effective_chat.id,
             text=f"You selected the videos:\n{format_videos_urls(context.user_data['videos_urls'])}",
             disable_web_page_preview=True,
+        )
+    else:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="You selected no videos.",
         )
 
     context.user_data["selected_options"] = set()
@@ -274,10 +284,19 @@ def build_options_keyboard(
         [InlineKeyboardButton(select_all_label, callback_data="select_all")]
     )
 
-    if selected_options:
-        keyboard.append([InlineKeyboardButton("✅ Done", callback_data="done")])
+    if is_playlist:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    "Select Different Playlist Videos", callback_data="select_videos"
+                )
+            ]
+        )
 
     keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel")])
+
+    if selected_options:
+        keyboard.append([InlineKeyboardButton("✅ Done", callback_data="done")])
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -326,6 +345,25 @@ async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT
         )
 
         return await send_user_info(update, context)
+
+    elif option == "select_videos":
+        await query.message.edit_text(
+            text=f"This playlist has {len(context.user_data['playlist_available_videos'])} available videos.\n"
+            "Choose which videos you want (e.g., 2, 4-7, 9).\n"
+            "Or click 'None' or 'All'.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(text="None", callback_data="none"),
+                        InlineKeyboardButton(text="All", callback_data="all"),
+                    ]
+                ]
+            ),
+        )
+
+        context.user_data["video_selection_message"] = query.message.message_id
+
+        return SELECT_VIDEOS
 
     elif option == "cancel":
         await query.message.edit_text("Process finished. Send /start to begin again.")
