@@ -67,12 +67,10 @@ async def get_videos_urls(type, id):
         "force_generic_extractor": True,  # Prevents unnecessary API calls
     }
 
-    loop = asyncio.get_event_loop()
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = await loop.run_in_executor(
-                None, lambda: ydl.extract_info(url, download=False)
-            )
+        info = await asyncio.to_thread(
+            lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(url, download=False)
+        )
 
         if type == "video":
             return [info["webpage_url"]] if "webpage_url" in info else []
@@ -94,23 +92,32 @@ async def is_video_available(video_url):
         "force_generic_extractor": True,
     }
 
-    loop = asyncio.get_event_loop()
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            await loop.run_in_executor(
-                None, lambda: ydl.extract_info(video_url, download=False)
-            )
+        await asyncio.to_thread(
+            lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(video_url, download=False)
+        )
         return True
     except yt_dlp.utils.DownloadError:
         return False
 
 
-async def get_hidden_playlist_videos(videos_urls):
+async def get_hidden_playlist_videos(videos_urls, max_concurrent_tasks=10):
     """Return a list of video URLs that are hidden/unavailable in a playlist."""
-    tasks = [is_video_available(url) for url in videos_urls]
-    results = await asyncio.gather(*tasks)
+    hidden_videos = []
 
-    return [videos_urls[i] for i in range(len(videos_urls)) if not results[i]]
+    async def process_batch(batch):
+        tasks = [is_video_available(url) for url in batch]
+        results = await asyncio.gather(*tasks)
+        hidden_videos.extend([batch[i] for i in range(len(batch)) if not results[i]])
+
+    batches = [
+        videos_urls[i : i + max_concurrent_tasks]
+        for i in range(0, len(videos_urls), max_concurrent_tasks)
+    ]
+
+    await asyncio.gather(*[process_batch(batch) for batch in batches])
+
+    return hidden_videos
 
 
 def parse_video_selection(selection, max_length):
@@ -164,12 +171,10 @@ async def get_video_infos(url):
         "force_generic_extractor": False,
     }
 
-    loop = asyncio.get_event_loop()
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = await loop.run_in_executor(
-                None, lambda: ydl.extract_info(url, download=False)
-            )
+        info = await asyncio.to_thread(
+            lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(url, download=False)
+        )
     except yt_dlp.utils.DownloadError:
         return None
 
@@ -232,12 +237,12 @@ async def get_playlist_infos(id):
         }
         channel_url = f"https://www.youtube.com/channel/{uploader_info}"
 
-        loop = asyncio.get_event_loop()
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                channel_info = await loop.run_in_executor(
-                    None, lambda: ydl.extract_info(channel_url, download=False)
+            channel_info = await asyncio.to_thread(
+                lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(
+                    channel_url, download=False
                 )
+            )
         except yt_dlp.utils.DownloadError as e:
             print(f"Error fetching channel info: {e}")
             uploader = None
