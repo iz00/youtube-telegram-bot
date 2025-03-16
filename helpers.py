@@ -348,6 +348,18 @@ def split_message(message, chunk_size=4096):
     return chunks
 
 
+async def fetch_thumbnail(thumbnail_url):
+    """Fetches the thumbnail of a video with its url."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(thumbnail_url) as response:
+                response.raise_for_status()
+                return await response.read()
+    except aiohttp.ClientError as e:
+        print(f"Error fetching thumbnail: {e}")
+        return None
+
+
 def process_image(image_data):
     """Converts an image to JPEG format."""
     try:

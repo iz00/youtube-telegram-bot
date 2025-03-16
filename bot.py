@@ -1,6 +1,6 @@
-import logging, requests
+import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.error import BadRequest
+from telegram.error import BadRequest, TimedOut
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
@@ -22,6 +22,7 @@ from helpers import (
     format_videos_urls,
     format_infos,
     split_message,
+    fetch_thumbnail,
     process_image,
 )
 
@@ -405,16 +406,10 @@ async def send_thumbnail_photo(update, context, thumbnail_url, caption):
     """Download the thumbnail and try to send it as a photo with caption.
     Return True if thumbnail was succesfully sent with caption.
     Else, return False, and, if possible, send only the thumbnail in a message."""
-    try:
-        response = requests.get(thumbnail_url, stream=True)
-        response.raise_for_status()
-        original_image_data = response.content
-    except requests.exceptions.RequestException as e:
-        print(f"Error downloading thumbnail: {e}")
+    if not (original_image_data := await fetch_thumbnail(thumbnail_url)):
         return False
 
-    processed_image = process_image(original_image_data)
-    if not processed_image:
+    if not (processed_image := process_image(original_image_data)):
         return False
 
     try:
@@ -432,8 +427,7 @@ async def send_thumbnail_photo(update, context, thumbnail_url, caption):
     except BadRequest as e:
         print(f"Error sending photo with caption: {e}")
 
-        processed_image = process_image(original_image_data)
-        if not processed_image:
+        if not (processed_image := process_image(original_image_data)):
             return False
 
         await context.bot.send_photo(
