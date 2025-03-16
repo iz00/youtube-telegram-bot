@@ -1,4 +1,4 @@
-import re, yt_dlp, requests
+import aiohttp, asyncio, re, yt_dlp
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
@@ -52,7 +52,7 @@ def get_type_id_url(url):
     return {"error": "Invalid URL."}
 
 
-def get_videos_urls(type, id):
+async def get_videos_urls(type, id):
     """
     Validate YouTube video or playlist ID and return a list of video URLs.
     - If the ID is invalid, return an empty list.
@@ -67,9 +67,12 @@ def get_videos_urls(type, id):
         "force_generic_extractor": True,  # Prevents unnecessary API calls
     }
 
+    loop = asyncio.get_event_loop()
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+            info = await loop.run_in_executor(
+                None, lambda: ydl.extract_info(url, download=False)
+            )
 
         if type == "video":
             return [info["webpage_url"]] if "webpage_url" in info else []
@@ -82,7 +85,7 @@ def get_videos_urls(type, id):
     return []
 
 
-def is_video_available(video_url):
+async def is_video_available(video_url):
     """Returns True if the video is available (not hidden, blocked, removed or private)."""
     ydl_opts = {
         "quiet": True,
@@ -91,23 +94,23 @@ def is_video_available(video_url):
         "force_generic_extractor": True,
     }
 
+    loop = asyncio.get_event_loop()
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.extract_info(video_url, download=False)
+            await loop.run_in_executor(
+                None, lambda: ydl.extract_info(video_url, download=False)
+            )
         return True
     except yt_dlp.utils.DownloadError:
         return False
 
 
-def get_hidden_playlist_videos(videos_urls):
+async def get_hidden_playlist_videos(videos_urls):
     """Return a list of video URLs that are hidden/unavailable in a playlist."""
-    hidden_videos = []
+    tasks = [is_video_available(url) for url in videos_urls]
+    results = await asyncio.gather(*tasks)
 
-    for url in videos_urls:
-        if not is_video_available(url):
-            hidden_videos.append(url)
-
-    return hidden_videos
+    return [videos_urls[i] for i in range(len(videos_urls)) if not results[i]]
 
 
 def parse_video_selection(selection, max_length):
@@ -151,7 +154,7 @@ def format_date(date):
         return date
 
 
-def get_video_infos(url):
+async def get_video_infos(url):
     """Fetches video metadata using yt_dlp and returns a dictionary."""
     ydl_opts = {
         "quiet": True,
@@ -161,9 +164,12 @@ def get_video_infos(url):
         "force_generic_extractor": False,
     }
 
+    loop = asyncio.get_event_loop()
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+            info = await loop.run_in_executor(
+                None, lambda: ydl.extract_info(url, download=False)
+            )
     except yt_dlp.utils.DownloadError:
         return None
 
@@ -196,17 +202,18 @@ def get_video_infos(url):
     }
 
 
-def get_playlist_infos(id):
+async def get_playlist_infos(id):
     """Fetches playlist metadata using YouTube Data API v3 and returns a dictionary.
     yt_dlp is not used because if the playlist has any unavailable videos, it will raise an error.
     """
     url = f"https://www.googleapis.com/youtube/v3/playlists?part=snippet&id={id}&key={YOUTUBE_API_KEY}"
 
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        data = response.json()
-    except requests.exceptions.RequestException as e:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                response.raise_for_status()
+                data = await response.json()
+    except aiohttp.ClientError as e:
         print(f"Error fetching playlist info: {e}")
         return None
 
@@ -225,9 +232,12 @@ def get_playlist_infos(id):
         }
         channel_url = f"https://www.youtube.com/channel/{uploader_info}"
 
+        loop = asyncio.get_event_loop()
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                channel_info = ydl.extract_info(channel_url, download=False)
+                channel_info = await loop.run_in_executor(
+                    None, lambda: ydl.extract_info(channel_url, download=False)
+                )
         except yt_dlp.utils.DownloadError as e:
             print(f"Error fetching channel info: {e}")
             uploader = None

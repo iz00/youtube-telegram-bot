@@ -109,7 +109,7 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text="Error: Invalid YouTube URL. Please send a valid video or playlist URL.",
         )
 
-    elif not (videos_urls := get_videos_urls(url_info["type"], url_info["id"])):
+    elif not (videos_urls := await get_videos_urls(url_info["type"], url_info["id"])):
         error_message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Error: Unavailable YouTube URL. Please send a valid video or playlist URL.",
@@ -138,7 +138,7 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles playlist processing by fetching videos and asking user to select."""
 
-    hidden_videos = get_hidden_playlist_videos(context.user_data["videos_urls"])
+    hidden_videos = await get_hidden_playlist_videos(context.user_data["videos_urls"])
 
     if hidden_videos:
         context.user_data["playlist_hidden_videos"] = hidden_videos
@@ -451,7 +451,7 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if has_playlist_info:
-        playlist_info = get_playlist_infos(context.user_data["url_info"]["id"])
+        playlist_info = await get_playlist_infos(context.user_data["url_info"]["id"])
         if len(context.user_data.get("playlist_hidden_videos", {})) > 0:
             playlist_info["playlist hidden videos"] = context.user_data[
                 "playlist_hidden_videos"
@@ -480,7 +480,7 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if any(option in VIDEO_OPTIONS for option in context.user_data["selected_options"]):
         for video_url in context.user_data["videos_urls"]:
-            video_info = get_video_infos(video_url)
+            video_info = await get_video_infos(video_url)
             send_thumbnail = "thumbnail" in context.user_data[
                 "selected_options"
             ] and video_info.get("thumbnail")
