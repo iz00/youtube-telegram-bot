@@ -102,20 +102,22 @@ async def is_video_available(video_url):
 
 
 async def get_hidden_playlist_videos(
-    videos_urls, stop_event: asyncio.Event, max_concurrent_tasks=10
+    videos_urls, stop_event: asyncio.Event = None, max_concurrent_tasks=10
 ):
     """Return a list of video URLs that are hidden/unavailable in a playlist."""
     hidden_videos = []
 
     async def process_batch(batch):
-        if stop_event.is_set():
-            return
+        if stop_event:
+            if stop_event.is_set():
+                return
 
         tasks = [is_video_available(url) for url in batch]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        if stop_event.is_set():
-            return
+        if stop_event:
+            if stop_event.is_set():
+                return
 
         hidden_videos.extend(
             [batch[i] for i in range(len(batch)) if results[i] is False]
@@ -127,11 +129,12 @@ async def get_hidden_playlist_videos(
     ]
 
     for batch in batches:
-        if stop_event.is_set():
-            return []
+        if stop_event:
+            if stop_event.is_set():
+                return []
         await process_batch(batch)
 
-    return hidden_videos if not stop_event.is_set() else []
+    return hidden_videos
 
 
 def parse_video_selection(selection, max_length):

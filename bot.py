@@ -620,6 +620,74 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+async def get_send_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Triggered by /info command, send information on the video or playlist to user."""
+    if not context.args:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ Please provide a YouTube video or playlist URL."
+            "\nExample: /info <URL>",
+        )
+        return
+
+    url = context.args[0]
+
+    if not is_valid_youtube_url_format(url):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: Invalid YouTube URL format. Please send a valid video or playlist URL.",
+        )
+        return
+
+    if "error" in (url_info := get_type_id_url(url)):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: Invalid YouTube URL. Please send a valid video or playlist URL.",
+        )
+        return
+
+    if not (videos_urls := await get_videos_urls(url_info["type"], url_info["id"])):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: Unavailable YouTube URL. Please send a valid video or playlist URL.",
+        )
+        return
+
+    processing_message = await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"🔍 Fetching {url_info['type']} informations... Please wait.",
+    )
+
+    if url_info["type"] == "video":
+        infos = await get_video_infos(videos_urls[0])
+        options = VIDEO_OPTIONS
+    else:
+        infos = await get_playlist_infos(url_info["id"])
+        options = PLAYLIST_OPTIONS
+        if hidden_videos := await get_hidden_playlist_videos(videos_urls):
+            infos["playlist hidden videos"] = hidden_videos
+            options.append("playlist hidden videos")
+
+    message = format_infos(infos, options)
+
+    await context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=processing_message.message_id,
+    )
+
+    if infos.get("thumbnail"):
+        if await send_thumbnail_photo(update, context, infos["thumbnail"], message):
+            return
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=message,
+        parse_mode="MarkdownV2",
+        disable_web_page_preview=True,
+        disable_notification=True,
+    )
+
+
 if __name__ == "__main__":
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -642,7 +710,10 @@ if __name__ == "__main__":
         fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
     )
 
+    info_handler = CommandHandler("info", get_send_info, block=False)
+
     application.add_handler(help_handler)
     application.add_handler(conv_handler)
+    application.add_handler(info_handler)
 
     application.run_polling()
