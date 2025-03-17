@@ -136,10 +136,55 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await show_options_menu(update, context)
 
 
+async def check_for_cancel(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, stop_event: asyncio.Event
+):
+    """Continuously check for /cancel while processing messages."""
+    user_id = update.effective_user.id
+
+    while not stop_event.is_set():
+        try:
+            new_update = await context.application.update_queue.get()
+            if not new_update.message:
+                continue
+
+            # Only process "/cancel" from the same user
+            if (
+                new_update.message.text == "/cancel"
+                and new_update.message.from_user.id == user_id
+            ):
+                # Stop processing messages
+                stop_event.set()
+
+                # Wait for any currently sending messages to finish
+                await asyncio.sleep(0.5)
+
+                # Clear any remaining messages in the queue
+                while not context.application.update_queue.empty():
+                    context.application.update_queue.get_nowait()
+
+                await cancel(update, context)
+                return "CANCELED"
+
+        except asyncio.CancelledError:
+            return
+        except Exception as e:
+            print(f"Error checking for cancel: {e}")
+
+        await asyncio.sleep(0.1)
+
+
 async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles playlist processing by fetching videos and asking user to select."""
+    stop_event = asyncio.Event()
+    check_task = asyncio.create_task(check_for_cancel(update, context, stop_event))
 
-    hidden_videos = await get_hidden_playlist_videos(context.user_data["videos_urls"])
+    hidden_videos = await get_hidden_playlist_videos(
+        context.user_data["videos_urls"], stop_event
+    )
+
+    if stop_event.is_set():
+        return
 
     if hidden_videos:
         context.user_data["playlist_hidden_videos"] = hidden_videos
@@ -150,6 +195,9 @@ async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
 
     context.user_data["playlist_available_videos"] = context.user_data["videos_urls"]
+
+    if stop_event.is_set():
+        return
 
     video_selection_message = await context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -165,6 +213,8 @@ async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
         ),
     )
+
+    check_task.cancel()
 
     context.user_data["video_selection_message"] = video_selection_message.message_id
 
@@ -436,44 +486,6 @@ async def send_thumbnail_photo(update, context, thumbnail_url, caption):
             disable_notification=True,
         )
         return False
-
-
-async def check_for_cancel(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, stop_event: asyncio.Event
-):
-    """Continuously check for /cancel while processing messages."""
-    user_id = update.effective_user.id
-
-    while not stop_event.is_set():
-        try:
-            new_update = await context.application.update_queue.get()
-            if not new_update.message:
-                continue
-
-            # Only process "/cancel" from the same user
-            if (
-                new_update.message.text == "/cancel"
-                and new_update.message.from_user.id == user_id
-            ):
-                # Stop processing messages
-                stop_event.set()
-
-                # Wait for any currently sending messages to finish
-                await asyncio.sleep(0.5)
-
-                # Clear any remaining messages in the queue
-                while not context.application.update_queue.empty():
-                    context.application.update_queue.get_nowait()
-
-                await cancel(update, context)
-                return "CANCELED"
-
-        except asyncio.CancelledError:
-            return
-        except Exception as e:
-            print(f"Error checking for cancel: {e}")
-
-        await asyncio.sleep(0.1)
 
 
 async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
