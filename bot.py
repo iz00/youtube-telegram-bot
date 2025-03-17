@@ -179,6 +179,11 @@ async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stop_event = asyncio.Event()
     check_task = asyncio.create_task(check_for_cancel(update, context, stop_event))
 
+    video_processing_message = await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="🔍 Checking the playlist videos... Please wait.",
+    )
+
     hidden_videos = await get_hidden_playlist_videos(
         context.user_data["videos_urls"], stop_event
     )
@@ -199,8 +204,9 @@ async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if stop_event.is_set():
         return
 
-    video_selection_message = await context.bot.send_message(
+    await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
+        message_id=video_processing_message.message_id,
         text=f"This playlist has {len(context.user_data['playlist_available_videos'])} available videos.\n"
         "Choose which videos you want (e.g., 2, 4-7, 9).\n"
         "Or click 'None' or 'All'.",
@@ -216,7 +222,7 @@ async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     check_task.cancel()
 
-    context.user_data["video_selection_message"] = video_selection_message.message_id
+    context.user_data["video_selection_message"] = video_processing_message.message_id
 
     return SELECT_VIDEOS
 
