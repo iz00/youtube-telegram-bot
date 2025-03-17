@@ -1,4 +1,4 @@
-import logging
+import asyncio, logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import BadRequest, TimedOut
 from telegram.ext import (
@@ -438,8 +438,68 @@ async def send_thumbnail_photo(update, context, thumbnail_url, caption):
         return False
 
 
+async def check_for_cancel(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, stop_event: asyncio.Event
+):
+    """Continuously check for /cancel while processing messages."""
+    user_id = update.effective_user.id
+
+    while not stop_event.is_set():
+        try:
+            new_update = await context.application.update_queue.get()
+            if not new_update.message:
+                continue
+
+            # Only process "/cancel" from the same user
+            if (
+                new_update.message.text == "/cancel"
+                and new_update.message.from_user.id == user_id
+            ):
+                # Stop processing messages
+                stop_event.set()
+
+                # Wait for any currently sending messages to finish
+                await asyncio.sleep(0.5)
+
+                # Clear any remaining messages in the queue
+                while not context.application.update_queue.empty():
+                    context.application.update_queue.get_nowait()
+
+                await cancel(update, context)
+                return "CANCELED"
+
+        except asyncio.CancelledError:
+            return
+        except Exception as e:
+            print(f"Error checking for cancel: {e}")
+
+        await asyncio.sleep(0.1)
+
+
 async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send the user the requested information."""
+    stop_event = asyncio.Event()
+    check_task = asyncio.create_task(check_for_cancel(update, context, stop_event))
+
+    async def send_text(text):
+        """Send text message while checking for stop signal."""
+        if stop_event.is_set():
+            return False
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=text,
+            parse_mode="MarkdownV2",
+            disable_web_page_preview=True,
+            disable_notification=True,
+        )
+        return True
+
+    async def send_thumbnail(thumbnail_url, caption):
+        """Send thumbnail while checking for stop signal."""
+        if stop_event.is_set():
+            return False
+        return await send_thumbnail_photo(update, context, thumbnail_url, caption)
+
     has_playlist_info = any(
         "playlist" in option for option in context.user_data["selected_options"]
     )
@@ -453,13 +513,8 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         message = format_infos(playlist_info, context.user_data["selected_options"])
         for chunk in split_message(message):
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=chunk,
-                parse_mode="MarkdownV2",
-                disable_web_page_preview=True,
-                disable_notification=True,
-            )
+            if not await send_text(chunk):
+                return
 
     total_stats = None
 
@@ -474,29 +529,24 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if any(option in VIDEO_OPTIONS for option in context.user_data["selected_options"]):
         for video_url in context.user_data["videos_urls"]:
+            if stop_event.is_set():
+                return
+
             video_info = await get_video_infos(video_url)
-            send_thumbnail = "thumbnail" in context.user_data[
+            has_send_thumbnail = "thumbnail" in context.user_data[
                 "selected_options"
             ] and video_info.get("thumbnail")
 
             message = format_infos(video_info, context.user_data["selected_options"])
 
-            if send_thumbnail:
-                sent_thumbnail_with_caption = await send_thumbnail_photo(
-                    update, context, video_info["thumbnail"], message
-                )
-                if sent_thumbnail_with_caption:
+            if has_send_thumbnail:
+                if await send_thumbnail(video_info["thumbnail"], message):
                     continue
 
-            # If thumbnail wasn't sent with caption, or if send_thumbnail was False, send the text message
+            # If thumbnail wasn't sent with caption, or if has_send_thumbnail was False, send the text message
             for chunk in split_message(message):
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=chunk,
-                    parse_mode="MarkdownV2",
-                    disable_web_page_preview=True,
-                    disable_notification=True,
-                )
+                if not await send_text(chunk):
+                    return
 
             if video_count > 1 and selected_stats:
                 for stat in selected_stats:
@@ -504,25 +554,20 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         total_stats[stat] += video_info[stat]
 
     if total_stats and any(value > 0 for value in total_stats.values()):
-        formatted_total_message = format_infos(total_stats, selected_stats)
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="*Total Statistics:*\n\n" + formatted_total_message,
-            parse_mode="MarkdownV2",
-            disable_notification=True,
+        await send_text(
+            "*Total Statistics:*\n\n" + format_infos(total_stats, selected_stats)
         )
 
         average_stats = {
             stat: int(value) if value.is_integer() else round(value, 2)
             for stat, value in ((s, total_stats[s] / video_count) for s in total_stats)
         }
-        formatted_average_message = format_infos(average_stats, selected_stats)
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="*Average Statistics per Video:*\n\n" + formatted_average_message,
-            parse_mode="MarkdownV2",
-            disable_notification=True,
+        await send_text(
+            "*Average Statistics per Video:*\n\n"
+            + format_infos(average_stats, selected_stats)
         )
+
+    check_task.cancel()
 
     context.user_data["selected_options"] = set()
     return await show_options_menu(update, context)
