@@ -585,6 +585,25 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await show_options_menu(update, context)
 
 
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    """Handles all errors and sends a friendly message to the user."""
+    error = context.error
+
+    print(f"An error occurred: {error}")
+
+    if isinstance(error, TimedOut):
+        error_message = "⏳ The request took too long and timed out. Please try again."
+    else:
+        error_message = "⚠ An unexpected error occurred. Please try again."
+
+    if update and isinstance(update, Update) and update.effective_chat:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=error_message,
+            disable_notification=True,
+        )
+
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Finishes the conversation."""
     await context.bot.send_message(
@@ -597,6 +616,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == "__main__":
     application = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    application.add_error_handler(error_handler)
 
     help_handler = CommandHandler("help", help)
 
