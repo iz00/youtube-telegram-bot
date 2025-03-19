@@ -688,6 +688,69 @@ async def get_send_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def get_send_thumbnail(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Triggered by /thumbnail command, send video thumbnail to the user."""
+    if not context.args:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ Please provide a YouTube video URL."
+            "\nExample: /info <URL>",
+        )
+        return
+
+    url = context.args[0]
+
+    if not is_valid_youtube_url_format(url):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: Invalid YouTube URL format. Please send a valid video URL.",
+        )
+        return
+
+    if "error" in (url_info := get_type_id_url(url)):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: Invalid YouTube URL. Please send a valid video URL.",
+        )
+        return
+
+    if not url_info["type"] == "video":
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: This is a playlist URL. Please send a video URL.",
+        )
+        return
+
+    if not (videos_urls := await get_videos_urls(url_info["type"], url_info["id"])):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: Unavailable YouTube URL. Please send a valid video URL.",
+        )
+        return
+    
+    infos = await get_video_infos(videos_urls[0])
+
+    if not infos.get("thumbnail"):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: Thumbnail not found for this video.",
+        )
+        return
+
+    message = format_infos(infos, ["thumbnail"])
+
+    if await send_thumbnail_photo(update, context, infos["thumbnail"], message):
+        return
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=message,
+        parse_mode="MarkdownV2",
+        disable_web_page_preview=True,
+        disable_notification=True,
+    )
+
+
 if __name__ == "__main__":
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -711,9 +774,11 @@ if __name__ == "__main__":
     )
 
     info_handler = CommandHandler("info", get_send_info, block=False)
+    thumbnail_handler = CommandHandler("thumbnail", get_send_thumbnail, block=False)
 
     application.add_handler(help_handler)
     application.add_handler(conv_handler)
     application.add_handler(info_handler)
+    application.add_handler(thumbnail_handler)
 
     application.run_polling()
