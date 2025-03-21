@@ -131,7 +131,7 @@ async def get_hidden_playlist_videos(
             return []
         await process_batch(batch)
 
-    return hidden_videos if not stop_event.is_set() else []
+    return hidden_videos
 
 
 def parse_video_selection(selection, max_length):
