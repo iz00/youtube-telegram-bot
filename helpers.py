@@ -65,6 +65,7 @@ async def get_videos_urls(type, id):
         "quiet": True,
         "extract_flat": True,  # Only get URLs, no extra info
         "force_generic_extractor": True,  # Prevents unnecessary API calls
+        "cookiefile": "cookies.txt",
     }
 
     try:
@@ -90,6 +91,7 @@ async def is_video_available(video_url):
         "noprogress": True,
         "extract_flat": True,
         "force_generic_extractor": True,
+        "cookiefile": "cookies.txt",
     }
 
     try:
@@ -183,6 +185,7 @@ async def get_video_infos(url):
         "skip_download": True,
         "extract_flat": False,
         "force_generic_extractor": False,
+        "cookiefile": "cookies.txt",
     }
 
     try:
@@ -248,6 +251,7 @@ async def get_playlist_infos(id):
         ydl_opts = {
             "quiet": True,
             "extract_flat": True,
+            "cookiefile": "cookies.txt",
         }
         channel_url = f"https://www.youtube.com/channel/{uploader_info}"
 
