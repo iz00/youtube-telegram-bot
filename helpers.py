@@ -5,7 +5,7 @@ from PIL import Image
 from config import YOUTUBE_API_KEY
 
 
-def is_valid_youtube_url_format(url):
+def is_valid_youtube_url_format(url: str) -> bool:
     """Returns True if the URL is a valid YouTube video, shorts, or playlist URL.
     Considers the video ID to have always 11 characters."""
     pattern = r"""
@@ -35,7 +35,7 @@ def is_valid_youtube_url_format(url):
     return bool(pattern.match(url))
 
 
-def get_type_id_url(url):
+def get_type_id_url(url: str) -> dict[str, str]:
     """Get the type and ID of YouTube URL.
     Type is either "playlist" or "video"."""
     if "playlist" in url:
@@ -52,7 +52,7 @@ def get_type_id_url(url):
     return {"error": "Invalid URL."}
 
 
-async def get_videos_urls(type, id):
+async def get_videos_urls(type: str, id: str) -> list[str]:
     """
     Validate YouTube video or playlist ID and return a list of video URLs.
     - If the ID is invalid, return an empty list.
@@ -84,7 +84,7 @@ async def get_videos_urls(type, id):
     return []
 
 
-async def is_video_available(video_url):
+async def is_video_available(video_url: str) -> bool:
     """Returns True if the video is available (not hidden, blocked, removed or private)."""
     ydl_opts = {
         "quiet": True,
@@ -104,8 +104,8 @@ async def is_video_available(video_url):
 
 
 async def get_hidden_playlist_videos(
-    videos_urls, stop_event: asyncio.Event, max_concurrent_tasks=10
-):
+    videos_urls: list[str], stop_event: asyncio.Event, max_concurrent_tasks: int = 10
+) -> list[str]:
     """Return a list of video URLs that are hidden/unavailable in a playlist."""
     hidden_videos = []
 
@@ -136,7 +136,7 @@ async def get_hidden_playlist_videos(
     return hidden_videos
 
 
-def parse_video_selection(selection, max_length):
+def parse_video_selection(selection: str, max_length: int) -> list[int] | None:
     """Converts a user input string (e.g., "2, 4-7, 9") into a list of valid indices."""
     indices = set()
     try:
@@ -158,7 +158,7 @@ def parse_video_selection(selection, max_length):
     return sorted(indices)
 
 
-def format_seconds(seconds):
+def format_seconds(seconds: int) -> str:
     """Convert seconds into hh:mm:ss or mm:ss format."""
     seconds = int(seconds)
     hours, remainder = divmod(seconds, 3600)
@@ -169,7 +169,7 @@ def format_seconds(seconds):
     return f"{minutes:02}:{seconds:02}"  # mm:ss
 
 
-def format_date(date):
+def format_date(date: str) -> str:
     """Convert date from YYYYMMDD to DD/MM/YYYY format."""
     try:
         return f"{datetime.strptime(date, '%Y%m%d').strftime('%m/%d/%Y')} (mm/dd/yyyy)"
@@ -177,7 +177,7 @@ def format_date(date):
         return date
 
 
-async def get_video_infos(url):
+async def get_video_infos(url: str) -> dict[str, str] | None:
     """Fetches video metadata using yt_dlp and returns a dictionary."""
     ydl_opts = {
         "quiet": True,
@@ -224,7 +224,7 @@ async def get_video_infos(url):
     }
 
 
-async def get_playlist_infos(id):
+async def get_playlist_infos(id: str) -> dict[str, str] | None:
     """Fetches playlist metadata using YouTube Data API v3 and returns a dictionary.
     yt_dlp is not used because if the playlist has any unavailable videos, it will raise an error.
     """
@@ -277,7 +277,7 @@ async def get_playlist_infos(id):
     }
 
 
-def format_videos_urls(videos_urls, limit=10):
+def format_videos_urls(videos_urls: list[str], limit: int = 10) -> str:
     """Formats a list of video URLs into a message."""
     formatted_videos_urls = "\n".join(f"• {url}" for url in videos_urls[:limit])
     if len(videos_urls) > limit:
@@ -286,12 +286,12 @@ def format_videos_urls(videos_urls, limit=10):
     return formatted_videos_urls
 
 
-def escape_markdown_v2(text):
+def escape_markdown_v2(text: str) -> str:
     """Escapes special characters for Telegram Markdown V2."""
     return re.sub(r"([_*\[\]()~`>#+\-=|{}.!])", r"\\\1", str(text))
 
 
-def format_infos(info, selected_options):
+def format_infos(info: dict[str, str], selected_options: list[str]) -> str:
     """Formats playlist or video infos into a message."""
     if not info:
         return "Error fetching infos."
@@ -327,7 +327,7 @@ def format_infos(info, selected_options):
     return "\n\n".join(infos) if infos else "No infos available."
 
 
-def split_message(message, chunk_size=4096):
+def split_message(message: str, chunk_size: int = 4096) -> list[str]:
     """Splits a long message into smaller chunks, prioritizing newlines and preserving Markdown formatting."""
     chunks = []
 
@@ -366,7 +366,7 @@ def split_message(message, chunk_size=4096):
     return chunks
 
 
-async def fetch_thumbnail(thumbnail_url):
+async def fetch_thumbnail(thumbnail_url: str) -> bytes | None:
     """Fetches the thumbnail of a video with its url."""
     try:
         async with aiohttp.ClientSession() as session:
@@ -378,7 +378,7 @@ async def fetch_thumbnail(thumbnail_url):
         return None
 
 
-def process_image(image_data):
+def process_image(image_data: bytes) -> BytesIO | None:
     """Converts an image to JPEG format."""
     try:
         image = Image.open(BytesIO(image_data))
