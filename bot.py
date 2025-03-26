@@ -17,7 +17,13 @@ from handlers.conversation_handlers import (
 )
 from handlers.extra_commands_handlers import get_send_info, get_send_thumbnail
 from handlers.help_handlers import help, help_commands, help_infos, help_url
-from utils.bot_data import SELECT_OPTIONS, SELECT_VIDEOS, URL
+from utils.bot_data import (
+    SELECT_OPTIONS,
+    SELECT_VIDEOS,
+    URL,
+    VIDEO_OPTIONS,
+    PLAYLIST_OPTIONS,
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -44,7 +50,12 @@ if __name__ == "__main__":
                 ),
                 CallbackQueryHandler(receive_video_selection, pattern="^(all|none)$"),
             ],
-            SELECT_OPTIONS: [CallbackQueryHandler(receive_option_selection)],
+            SELECT_OPTIONS: [
+                CallbackQueryHandler(
+                    receive_option_selection,
+                    pattern=f"^({'|'.join(VIDEO_OPTIONS + PLAYLIST_OPTIONS + ['playlist hidden videos', 'done', 'cancel', 'select_videos', 'select_all'])})$",
+                )
+            ],
         },
         fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
     )
