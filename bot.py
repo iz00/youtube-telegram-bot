@@ -11,21 +11,22 @@ from telegram.ext import (
     filters,
 )
 from config import BOT_TOKEN
-from helpers import (
+from utils.yt_helpers import (
     is_valid_youtube_url_format,
     get_type_id_url,
     get_videos_urls,
     get_hidden_playlist_videos,
-    parse_video_selection,
     get_video_infos,
     get_playlist_infos,
+)
+from utils.format_helpers import (
+    parse_video_selection,
     format_videos_urls,
     escape_markdown_v2,
     format_infos,
     split_message,
-    fetch_thumbnail,
-    process_image,
 )
+from utils.image_helpers import fetch_thumbnail, process_image
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
