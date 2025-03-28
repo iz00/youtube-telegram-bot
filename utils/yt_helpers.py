@@ -33,21 +33,26 @@ def is_valid_youtube_url_format(url: str) -> bool:
     return bool(pattern.match(url))
 
 
-def get_type_id_url(url: str) -> dict[str, str]:
-    """Get the type and ID of YouTube URL.
-    Type is either "playlist" or "video"."""
-    if "playlist" in url:
-        playlist_pattern = r"[?&]list=([a-zA-Z0-9_-]+)"
-        playlist_match = re.search(playlist_pattern, url)
-        if playlist_match:
-            return {"type": "playlist", "id": playlist_match.group(1)}
+def get_youtube_url_type(url: str) -> str | None:
+    """Determine if a YouTube URL is a 'video' or 'playlist'."""
+    if "playlist" in url and re.search(r"[?&]list=([a-zA-Z0-9_-]+)", url):
+        return "playlist"
+    if re.search(
+        r"(?:youtube\.com\/(?:[^\/]+\/[^\/]+\/|(?:v|shorts)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})",
+        url,
+    ):
+        return "video"
+    return None
 
-    video_pattern = r"(?:youtube\.com\/(?:[^\/]+\/[^\/]+\/|(?:v|shorts)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})"
-    video_match = re.search(video_pattern, url)
-    if video_match:
-        return {"type": "video", "id": video_match.group(1)}
 
-    return {"error": "Invalid URL."}
+def get_youtube_url_id(url: str, yt_type: str) -> str | None:
+    """Extract the ID from a YouTube URL based on the type ('video' or 'playlist')."""
+    patterns = {
+        "playlist": r"[?&]list=([a-zA-Z0-9_-]+)",
+        "video": r"(?:youtube\.com\/(?:[^\/]+\/[^\/]+\/|(?:v|shorts)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})",
+    }
+    match = re.search(patterns.get(yt_type), url)
+    return match.group(1)
 
 
 async def get_videos_urls(type: str, id: str) -> list[str]:

@@ -5,7 +5,8 @@ from telegram.ext import ContextTypes, ConversationHandler
 from handlers.common_handlers import check_for_cancel
 from utils.yt_helpers import (
     is_valid_youtube_url_format,
-    get_type_id_url,
+    get_youtube_url_type,
+    get_youtube_url_id,
     get_videos_urls,
     get_hidden_playlist_videos,
     get_video_infos,
@@ -17,7 +18,14 @@ from utils.format_helpers import (
     format_infos,
     split_message,
 )
-from utils.bot_data import SELECT_OPTIONS, SELECT_VIDEOS, URL, VIDEO_OPTIONS, PLAYLIST_OPTIONS, OPTIONS_WITH_STATS
+from utils.bot_data import (
+    SELECT_OPTIONS,
+    SELECT_VIDEOS,
+    URL,
+    VIDEO_OPTIONS,
+    PLAYLIST_OPTIONS,
+    OPTIONS_WITH_STATS,
+)
 from utils.image_helpers import fetch_thumbnail, process_image
 
 
@@ -57,13 +65,16 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text="Error: Invalid YouTube URL format. Please send a valid video or playlist URL.",
         )
 
-    elif "error" in (url_info := get_type_id_url(url)):
+    elif not (
+        (url_type := get_youtube_url_type(url))
+        and (url_id := get_youtube_url_id(url, url_type))
+    ):
         error_message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Error: Invalid YouTube URL. Please send a valid video or playlist URL.",
         )
 
-    elif not (videos_urls := await get_videos_urls(url_info["type"], url_info["id"])):
+    elif not (videos_urls := await get_videos_urls(url_type, url_id)):
         error_message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Error: Unavailable YouTube URL. Please send a valid video or playlist URL.",
@@ -79,10 +90,11 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("last_error_message_id", None)
     context.user_data.pop("last_invalid_user_message_id", None)
 
-    context.user_data["url_info"] = url_info
+    context.user_data["url_type"] = url_type
+    context.user_data["url_id"] = url_id
     context.user_data["videos_urls"] = videos_urls
 
-    if url_info["type"] == "playlist":
+    if url_type == "playlist":
         return await handle_playlist(update, context)
 
     context.user_data["selected_options"] = set()
@@ -275,7 +287,7 @@ def build_options_keyboard(
 
 async def show_options_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show options selection menu."""
-    is_playlist = context.user_data["url_info"]["type"] == "playlist"
+    is_playlist = context.user_data["url_type"] == "playlist"
     has_hidden_videos = len(context.user_data.get("playlist_hidden_videos", {})) > 0
 
     keyboard = build_options_keyboard(
@@ -342,7 +354,7 @@ async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT
         return ConversationHandler.END
 
     has_videos = bool(context.user_data["videos_urls"])
-    is_playlist = context.user_data["url_info"]["type"] == "playlist"
+    is_playlist = context.user_data["url_type"] == "playlist"
     has_hidden_videos = bool(context.user_data.get("playlist_hidden_videos"))
 
     options = VIDEO_OPTIONS[:] if has_videos else []
@@ -438,7 +450,7 @@ async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if has_playlist_info:
-        playlist_info = await get_playlist_infos(context.user_data["url_info"]["id"])
+        playlist_info = await get_playlist_infos(context.user_data["url_id"])
         if len(context.user_data.get("playlist_hidden_videos", {})) > 0:
             playlist_info["playlist hidden videos"] = context.user_data[
                 "playlist_hidden_videos"
