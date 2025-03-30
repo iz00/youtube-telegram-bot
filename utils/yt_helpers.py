@@ -162,16 +162,6 @@ async def get_video_infos(url: str) -> dict[str, str] | None:
         uploader_url = info.get("uploader_url")
         uploader = f"{uploader} ({uploader_url})" if uploader_url else uploader
 
-    chapters_info = info.get("chapters")
-    chapters = (
-        [
-            f"{chapter['title']} ({format_seconds(chapter['start_time'])} - {format_seconds(chapter['end_time'])})"
-            for chapter in chapters_info
-        ]
-        if chapters_info
-        else None
-    )
-
     return {
         "title": info.get("fulltitle"),
         "duration": info.get("duration"),
@@ -181,7 +171,7 @@ async def get_video_infos(url: str) -> dict[str, str] | None:
         "upload date": info.get("upload_date"),
         "uploader": uploader,
         "description": info.get("description"),
-        "chapters": chapters,
+        "chapters": info.get("chapters"),
         "thumbnail": info.get("thumbnail"),
     }
 

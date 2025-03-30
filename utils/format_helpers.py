@@ -53,25 +53,40 @@ def format_videos_urls(videos_urls: list[str], limit: int = 10) -> str:
 
 
 def escape_markdown_v2(text: str) -> str:
-    """Escapes special characters for Telegram Markdown V2."""
-    return re.sub(r"([_*\[\]()~`>#+\-=|{}.!])", r"\\\1", str(text))
+    """Escapes special characters for Telegram MarkdownV2."""
+    special_characters = r"_*\[\]()~`>#+\-=|{}.!\\"
+    return re.sub(f"([{re.escape(special_characters)}])", r"\\\1", str(text))
 
 
-def format_infos(info: dict[str, str], selected_options: list[str]) -> str:
+def format_video_chapters(chapters: list[dict[str, str]]) -> list[str]:
+    """Formats a list of video chapters dictionaries into a list of video chapters strings."""
+    return [
+        f"{chapter['title']} ({format_seconds(chapter['start_time'])} - {format_seconds(chapter['end_time'])})"
+        for chapter in chapters
+    ]
+
+
+def format_infos(infos: dict[str, str], selected_info_options: list[str]) -> str:
     """Formats playlist or video infos into a message."""
-    if not info:
-        return "Error fetching infos."
+    if not infos:
+        return f"⚠️ {escape_markdown_v2('Error fetching infos. Please try again.')}"
 
-    infos = []
-    for option in selected_options:
-        if option in info and info[option]:
+    formatted_infos = []
+    for option in selected_info_options:
+        if option in infos and infos[option]:
             option_name = option.title()
 
             match option:
                 case "duration":
-                    option_value = format_seconds(info[option])
+                    option_value = format_seconds(infos[option])
                 case "upload date":
-                    option_value = format_date(info[option])
+                    option_value = format_date(infos[option])
+                case "chapters" | "playlist hidden videos":
+                    option_value = "\n" + "\n".join(
+                        format_video_chapters(infos[option])
+                        if option == "chapters"
+                        else infos[option]
+                    )
                 case (
                     "title"
                     | "playlist title"
@@ -81,16 +96,19 @@ def format_infos(info: dict[str, str], selected_options: list[str]) -> str:
                     | "playlist uploader"
                     | "thumbnail"
                 ):
-                    option_value = f"\n{info[option]}"
-                case "chapters" | "playlist hidden videos":
-                    option_value = "\n" + "\n".join(info[option])
+                    option_value = f"\n{infos[option]}"
                 case _:
-                    option_value = info[option]
+                    option_value = infos[option]
 
-            option_value = escape_markdown_v2(option_value)
-            infos.append(f"*{option_name}:* {option_value}")
+            formatted_infos.append(
+                f"*{option_name}:* {escape_markdown_v2(option_value)}"
+            )
 
-    return "\n\n".join(infos) if infos else "No infos available."
+    return (
+        "\n\n".join(formatted_infos)
+        if formatted_infos
+        else f"⚠️ {escape_markdown_v2('No infos available. Please try again.')}"
+    )
 
 
 def split_message(message: str, chunk_size: int = 4096) -> list[str]:
