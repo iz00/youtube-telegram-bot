@@ -176,11 +176,36 @@ async def get_video_infos(url: str) -> dict[str, str] | None:
     }
 
 
-async def get_playlist_infos(id: str) -> dict[str, str] | None:
+async def get_channel_infos(channel_id: str) -> str | None:
+    """Fetches channel name and url with handle (@) using yt_dlp, provided the channel id."""
+    channel_url_with_id = f"https://www.youtube.com/channel/{channel_id}"
+
+    yt_dlp_options = {
+        "quiet": True,
+        "extract_flat": True,
+        "cookiefile": "cookies.txt",
+    }
+
+    try:
+        info = await asyncio.to_thread(
+            lambda: yt_dlp.YoutubeDL(yt_dlp_options).extract_info(
+                channel_url_with_id, download=False
+            )
+        )
+    except yt_dlp.utils.DownloadError as e:
+        print(f"Error fetching channel {channel_url} info: {e}")
+        return None
+    else:
+        if (channel_name := info.get("channel")):
+            channel_url = info.get("uploader_url")
+            return f"{channel_name} ({channel_url})" if channel_url else channel_name
+
+
+async def get_playlist_infos(playlist_id: str) -> dict[str, str] | None:
     """Fetches playlist metadata using YouTube Data API v3 and returns a dictionary.
     yt_dlp is not used because if the playlist has any unavailable videos, it will raise an error.
     """
-    url = f"https://www.googleapis.com/youtube/v3/playlists?part=snippet&id={id}&key={YOUTUBE_API_KEY}"
+    url = f"https://www.googleapis.com/youtube/v3/playlists?part=snippet&id={playlist_id}&key={YOUTUBE_API_KEY}"
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -195,32 +220,11 @@ async def get_playlist_infos(id: str) -> dict[str, str] | None:
         return None
 
     info = data["items"][0]["snippet"]
-    uploader_info = info.get("channelId")
 
     # Get channel information through yt_dlp,
     # Because the YT Data API doesn't provide uploader's handle (@).
-    if uploader_info:
-        ydl_opts = {
-            "quiet": True,
-            "extract_flat": True,
-            "cookiefile": "cookies.txt",
-        }
-        channel_url = f"https://www.youtube.com/channel/{uploader_info}"
-
-        try:
-            channel_info = await asyncio.to_thread(
-                lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(
-                    channel_url, download=False
-                )
-            )
-        except yt_dlp.utils.DownloadError as e:
-            print(f"Error fetching channel info: {e}")
-            uploader = None
-        else:
-            uploader = channel_info.get("channel")
-            if uploader:
-                uploader_url = channel_info.get("uploader_url")
-                uploader = f"{uploader} ({uploader_url})" if uploader_url else uploader
+    if (uploader := info.get("channelId")):
+        uploader = await get_channel_infos(uploader)
 
     return {
         "playlist title": info.get("title"),
