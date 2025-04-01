@@ -1,10 +1,11 @@
 import aiohttp
+
 from io import BytesIO
 from PIL import Image
 
 
-async def fetch_thumbnail(thumbnail_url: str) -> bytes | None:
-    """Fetches the thumbnail of a video with its url."""
+async def fetch_video_thumbnail(thumbnail_url: str) -> bytes | None:
+    """Fetches the thumbnail of a video from the provided URL."""
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(thumbnail_url) as response:
@@ -15,8 +16,8 @@ async def fetch_thumbnail(thumbnail_url: str) -> bytes | None:
         return None
 
 
-def process_image(image_data: bytes) -> BytesIO | None:
-    """Converts an image to JPEG format."""
+def convert_image_to_jpeg(image_data: bytes) -> BytesIO | None:
+    """Converts an image in bytes to JPEG format."""
     try:
         image = Image.open(BytesIO(image_data))
         image = image.convert("RGB")

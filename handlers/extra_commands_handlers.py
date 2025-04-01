@@ -1,26 +1,31 @@
 import asyncio
+
 from telegram import Update
 from telegram.ext import ContextTypes
-from handlers.conversation_handlers import send_thumbnail_photo
+
 from handlers.common_handlers import check_for_cancel
-from utils.yt_helpers import (
-    is_valid_youtube_url_format,
-    get_youtube_url_type,
-    get_youtube_url_id,
-    get_videos_urls,
-    get_hidden_playlist_videos,
-    get_video_infos,
-    get_playlist_infos,
-)
-from utils.bot_data import VIDEO_OPTIONS, PLAYLIST_OPTIONS
+from handlers.conversation_handlers import send_thumbnail_photo
+
+from utils.bot_data import PLAYLIST_INFO_OPTIONS, VIDEO_INFO_OPTIONS
 from utils.format_helpers import format_infos
+from utils.yt_helpers import (
+    get_hidden_playlist_videos,
+    get_playlist_infos,
+    get_video_infos,
+    get_videos_urls,
+    get_youtube_url_id,
+    get_youtube_url_type,
+    is_valid_youtube_url_format,
+)
 
 
 async def get_send_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Triggered by /info command, send information on the video or playlist to user."""
     context.user_data["conversation"] = False
-    stop_event = asyncio.Event()
-    check_task = asyncio.create_task(check_for_cancel(update, context, stop_event))
+    cancel_event = asyncio.Event()
+    check_cancel_task = asyncio.create_task(
+        check_for_cancel(update, context, cancel_event)
+    )
 
     if not context.args:
         await context.bot.send_message(
@@ -35,7 +40,7 @@ async def get_send_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_valid_youtube_url_format(url):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Error: Invalid YouTube URL format. Please send a valid video or playlist URL.",
+            text="❌ Invalid YouTube URL format. Please send a valid video or playlist URL.",
         )
         return
 
@@ -45,17 +50,17 @@ async def get_send_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Error: Invalid YouTube URL. Please send a valid video or playlist URL.",
+            text="❌ Invalid YouTube URL. Please send a valid video or playlist URL.",
         )
         return
 
-    if stop_event.is_set():
+    if cancel_event.is_set():
         return
 
     if not (videos_urls := await get_videos_urls(url_type, url_id)):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Error: Unavailable YouTube URL. Please send a valid video or playlist URL.",
+            text="❌ Unavailable YouTube URL. Please send a valid video or playlist URL.",
         )
         return
 
@@ -64,53 +69,59 @@ async def get_send_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text=f"🔍 Fetching {url_type} informations... Please wait.",
     )
 
-    if stop_event.is_set():
+    if cancel_event.is_set():
         return
 
     if url_type == "video":
         infos = await get_video_infos(videos_urls[0])
-        options = VIDEO_OPTIONS
+        info_options = VIDEO_INFO_OPTIONS
     else:
         infos = await get_playlist_infos(url_id)
-        options = PLAYLIST_OPTIONS
-        if hidden_videos := await get_hidden_playlist_videos(videos_urls, stop_event):
-            infos["playlist hidden videos"] = hidden_videos
-            options.append("playlist hidden videos")
+        info_options = PLAYLIST_INFO_OPTIONS
+        if hidden_videos_urls := await get_hidden_playlist_videos(
+            videos_urls, cancel_event
+        ):
+            infos["playlist hidden videos"] = hidden_videos_urls
+            info_options.append("playlist hidden videos")
 
-    if stop_event.is_set():
+    if cancel_event.is_set():
         return
 
-    message = format_infos(infos, options)
+    infos_message = format_infos(infos, info_options)
 
     await context.bot.delete_message(
         chat_id=update.effective_chat.id,
         message_id=processing_message.message_id,
     )
 
-    if stop_event.is_set():
+    if cancel_event.is_set():
         return
 
     if infos.get("thumbnail"):
-        if await send_thumbnail_photo(update, context, infos["thumbnail"], message):
+        if await send_thumbnail_photo(
+            update, context, infos["thumbnail"], infos_message
+        ):
             return
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=message,
+        text=infos_message,
         parse_mode="MarkdownV2",
         disable_web_page_preview=True,
         disable_notification=True,
     )
 
-    check_task.cancel()
+    check_cancel_task.cancel()
 
 
 async def get_send_thumbnail(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Triggered by /thumbnail command, send video thumbnail to the user."""
+    context.user_data["conversation"] = False
+
     if not context.args:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="❌ Please provide a YouTube video URL." "\nExample: /info <URL>",
+            text="❌ Please provide a YouTube video URL." "\nExample: /thumbnail <URL>",
         )
         return
 
@@ -119,7 +130,7 @@ async def get_send_thumbnail(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not is_valid_youtube_url_format(url):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Error: Invalid YouTube URL format. Please send a valid video URL.",
+            text="❌ Invalid YouTube URL format. Please send a valid video URL.",
         )
         return
 
@@ -129,21 +140,21 @@ async def get_send_thumbnail(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Error: Invalid YouTube URL. Please send a valid video or playlist URL.",
+            text="❌ Invalid YouTube URL. Please send a valid video URL.",
         )
         return
 
     if not url_type == "video":
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Error: This is a playlist URL. Please send a video URL.",
+            text="❌ This is a playlist URL. Please send a video URL.",
         )
         return
 
     if not (videos_urls := await get_videos_urls(url_type, url_id)):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Error: Unavailable YouTube URL. Please send a valid video URL.",
+            text="❌ Unavailable YouTube URL. Please send a valid video URL.",
         )
         return
 
@@ -152,7 +163,7 @@ async def get_send_thumbnail(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not infos.get("thumbnail"):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Error: Thumbnail not found for this video.",
+            text="❌ Thumbnail not found for this video. Please try another one.",
         )
         return
 

@@ -1,21 +1,22 @@
 import re
+
 from datetime import datetime
 
 
-def parse_video_selection(selection: str, max_length: int) -> list[int] | None:
-    """Converts a user input string (e.g., "2, 4-7, 9") into a list of valid indices."""
+def parse_videos_selection(selection: str, video_count: int) -> list[int] | None:
+    """Converts a user input selection string (e.g., "2, 4-7, 9") into a list of valid indices."""
     indices = set()
     try:
         parts = selection.split(",")
         for part in parts:
             if "-" in part:
                 start, end = map(int, part.split("-"))
-                if start > end or start < 1 or end > max_length:
+                if start > end or start < 1 or end > video_count:
                     return None
                 indices.update(range(start, end + 1))
             else:
                 index = int(part)
-                if index < 1 or index > max_length:
+                if index < 1 or index > video_count:
                     return None
                 indices.add(index)
     except ValueError:
@@ -24,32 +25,37 @@ def parse_video_selection(selection: str, max_length: int) -> list[int] | None:
     return sorted(indices)
 
 
-def format_seconds(seconds: int) -> str:
+def format_seconds(seconds: str) -> str:
     """Convert seconds into hh:mm:ss or mm:ss format."""
     seconds = int(seconds)
     hours, remainder = divmod(seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
 
-    if hours > 0:
-        return f"{hours:02}:{minutes:02}:{seconds:02}"  # hh:mm:ss
-    return f"{minutes:02}:{seconds:02}"  # mm:ss
+    return (
+        f"{hours:02}:{minutes:02}:{seconds:02}"
+        if hours
+        else f"{minutes:02}:{seconds:02}"
+    )
 
 
 def format_date(date: str) -> str:
-    """Convert date from YYYYMMDD to DD/MM/YYYY format."""
+    """Convert date from YYYYMMDD to MM/DD/YYYY format."""
     try:
         return f"{datetime.strptime(date, '%Y%m%d').strftime('%m/%d/%Y')} (mm/dd/yyyy)"
     except ValueError:
         return date
 
 
-def format_videos_urls(videos_urls: list[str], limit: int = 10) -> str:
+def format_video_urls(video_urls: list[str], max_videos_display: int = 10) -> str:
     """Formats a list of video URLs into a message."""
-    formatted_videos_urls = "\n".join(f"• {url}" for url in videos_urls[:limit])
-    if len(videos_urls) > limit:
-        formatted_videos_urls += f"\n... And another {len(videos_urls) - limit} videos."
+    formatted_video_urls = "\n".join(
+        f"• {url}" for url in video_urls[:max_videos_display]
+    )
 
-    return formatted_videos_urls
+    if (remaining_videos_quantity := len(video_urls) - max_videos_display) > 0:
+        formatted_video_urls += f"\n... And {remaining_videos_quantity} more video{'s' if remaining_videos_quantity > 1 else ''}."
+
+    return formatted_video_urls
 
 
 def escape_markdown_v2(text: str) -> str:
@@ -112,7 +118,7 @@ def format_infos(infos: dict[str, str], selected_info_options: list[str]) -> str
 
 
 def split_message(message: str, chunk_size: int = 4096) -> list[str]:
-    """Splits a long message into smaller chunks, prioritizing newlines and preserving Markdown formatting."""
+    """Splits a long message into smaller chunks, prioritizing newlines and preserving MarkdownV2 formatting."""
     chunks = []
 
     while message:
@@ -121,30 +127,29 @@ def split_message(message: str, chunk_size: int = 4096) -> list[str]:
             break
 
         # Try to split at the last newline within chunk_size
-        split_pos = message.rfind("\n", 0, chunk_size)
+        split_position = message.rfind("\n", 0, chunk_size)
 
         # If no newline found, find a space instead
-        if split_pos == -1:
-            split_pos = message.rfind(" ", 0, chunk_size)
+        if split_position == -1:
+            split_position = message.rfind(" ", 0, chunk_size)
 
-        # Force split at chunk_size
-        if split_pos == -1:
-            split_pos = chunk_size
+            # If no space found, force split at chunk_size
+            if split_position == -1:
+                split_position = chunk_size
 
-        chunk = message[:split_pos]
+        chunk = message[:split_position]
 
-        # Ensure don't split in the middle of a Markdown entity
+        # Ensure no split in the middle of a MarkdownV2 entity
         open_bold = chunk.count("*") % 2 != 0
         open_italic = chunk.count("_") % 2 != 0
         open_bolditalic = chunk.count("***") % 2 != 0
 
         if open_bold or open_italic or open_bolditalic:
-            safe_split = re.search(r"([*_]+)", chunk[::-1])
-            if safe_split:
-                split_pos -= safe_split.start() + 1
-                chunk = message[:split_pos]
+            if safe_split := re.search(r"([*_]+)", chunk[::-1]):
+                split_position -= safe_split.start() + 1
+                chunk = message[:split_position]
 
         chunks.append(chunk.strip())
-        message = message[split_pos:].lstrip()
+        message = message[split_position:].lstrip()
 
     return chunks

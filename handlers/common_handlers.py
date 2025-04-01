@@ -1,4 +1,5 @@
 import asyncio
+
 from telegram import Update
 from telegram.error import TimedOut
 from telegram.ext import ContextTypes, ConversationHandler
@@ -32,7 +33,7 @@ async def check_for_cancel(
                     context.application.update_queue.get_nowait()
 
                 await cancel(update, context)
-                return "CANCELED"
+                return
 
         except asyncio.CancelledError:
             return
@@ -43,7 +44,7 @@ async def check_for_cancel(
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Finishes the conversation."""
+    """Finishes ongoing user process and/or ends conversation."""
     if context.user_data["conversation"]:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -67,7 +68,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     if isinstance(error, TimedOut):
         error_message = "⏳ The request took too long and timed out. Please try again."
     else:
-        error_message = "⚠ An unexpected error occurred. Please try again."
+        error_message = "⚠️ An unexpected error occurred. Please try again."
 
     if update and isinstance(update, Update) and update.effective_chat:
         await context.bot.send_message(

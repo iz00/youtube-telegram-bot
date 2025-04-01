@@ -1,32 +1,35 @@
 import asyncio
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import BadRequest
-from telegram.ext import ContextTypes, ConversationHandler
-from handlers.common_handlers import check_for_cancel
-from utils.yt_helpers import (
-    is_valid_youtube_url_format,
-    get_youtube_url_type,
-    get_youtube_url_id,
-    get_videos_urls,
-    get_hidden_playlist_videos,
-    get_video_infos,
-    get_playlist_infos,
+from telegram.ext import ContextTypes
+
+from handlers.common_handlers import cancel, check_for_cancel
+
+from utils.bot_data import (
+    PLAYLIST_INFO_OPTIONS,
+    PROVIDE_URL,
+    SELECT_INFO_OPTIONS,
+    SELECT_VIDEOS,
+    STATISTICAL_INFO_OPTIONS,
+    VIDEO_INFO_OPTIONS,
 )
 from utils.format_helpers import (
-    parse_video_selection,
-    format_videos_urls,
     format_infos,
+    format_video_urls,
+    parse_videos_selection,
     split_message,
 )
-from utils.bot_data import (
-    SELECT_OPTIONS,
-    SELECT_VIDEOS,
-    URL,
-    VIDEO_OPTIONS,
-    PLAYLIST_OPTIONS,
-    OPTIONS_WITH_STATS,
+from utils.image_helpers import convert_image_to_jpeg, fetch_video_thumbnail
+from utils.yt_helpers import (
+    get_hidden_playlist_videos,
+    get_playlist_infos,
+    get_video_infos,
+    get_videos_urls,
+    get_youtube_url_id,
+    get_youtube_url_type,
+    is_valid_youtube_url_format,
 )
-from utils.image_helpers import fetch_thumbnail, process_image
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -35,13 +38,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["conversation"] = True
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Send a YouTube video or playlist URL.\n",
+        text="Send a YouTube video or playlist URL.",
     )
 
-    return URL
+    return PROVIDE_URL
 
 
-async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Receives a YouTube URL, validates it, and routes accordingly."""
     url = update.message.text.replace(" ", "")
 
@@ -62,7 +65,7 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_valid_youtube_url_format(url):
         error_message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Error: Invalid YouTube URL format. Please send a valid video or playlist URL.",
+            text="❌ Invalid YouTube URL format. Please send a valid video or playlist URL.",
         )
 
     elif not (
@@ -71,20 +74,20 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ):
         error_message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Error: Invalid YouTube URL. Please send a valid video or playlist URL.",
+            text="❌ Invalid YouTube URL. Please send a valid video or playlist URL.",
         )
 
     elif not (videos_urls := await get_videos_urls(url_type, url_id)):
         error_message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Error: Unavailable YouTube URL. Please send a valid video or playlist URL.",
+            text="❌ Unavailable YouTube URL. Please send a valid video or playlist URL.",
         )
 
     # If there was an error, store message IDs and return
     if error_message:
         context.user_data["last_error_message_id"] = error_message.message_id
         context.user_data["last_invalid_user_message_id"] = update.message.message_id
-        return URL
+        return PROVIDE_URL
 
     # Delete previous wrong and error messages (if exists) from user_data
     context.user_data.pop("last_error_message_id", None)
@@ -97,38 +100,42 @@ async def receive_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if url_type == "playlist":
         return await handle_playlist(update, context)
 
-    context.user_data["selected_options"] = set()
-    return await show_options_menu(update, context)
+    context.user_data["selected_info_options"] = set()
+    return await send_info_options_menu(update, context)
 
 
 async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles playlist processing by fetching videos and asking user to select."""
-    stop_event = asyncio.Event()
-    check_task = asyncio.create_task(check_for_cancel(update, context, stop_event))
+    cancel_event = asyncio.Event()
+    check_cancel_task = asyncio.create_task(
+        check_for_cancel(update, context, cancel_event)
+    )
 
     video_processing_message = await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="🔍 Checking the playlist videos... Please wait.",
     )
 
-    hidden_videos = await get_hidden_playlist_videos(
-        context.user_data["videos_urls"], stop_event
+    hidden_videos_urls = await get_hidden_playlist_videos(
+        context.user_data["videos_urls"], cancel_event
     )
 
-    if stop_event.is_set():
+    if cancel_event.is_set():
         return
 
-    if hidden_videos:
-        context.user_data["playlist_hidden_videos"] = hidden_videos
+    if hidden_videos_urls:
+        context.user_data["playlist_hidden_videos"] = hidden_videos_urls
 
         # Keep only avaliable videos in videos_urls
         context.user_data["videos_urls"] = [
-            url for url in context.user_data["videos_urls"] if url not in hidden_videos
+            url
+            for url in context.user_data["videos_urls"]
+            if url not in hidden_videos_urls
         ]
 
     context.user_data["playlist_available_videos"] = context.user_data["videos_urls"]
 
-    if stop_event.is_set():
+    if cancel_event.is_set():
         return
 
     await context.bot.edit_message_text(
@@ -147,14 +154,16 @@ async def handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ),
     )
 
-    check_task.cancel()
+    check_cancel_task.cancel()
 
     context.user_data["video_selection_message"] = video_processing_message.message_id
 
     return SELECT_VIDEOS
 
 
-async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_selected_playlist_videos(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+):
     """Processes user's selection of videos from the playlist."""
     query = update.callback_query
 
@@ -173,6 +182,7 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
     # If user clicked one of the buttons
     if query:
         await query.answer()
+
         if query.data == "none":
             context.user_data["videos_urls"] = []
         elif query.data == "all":
@@ -181,7 +191,7 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
             ]
     else:
         user_input = update.message.text.replace(" ", "")
-        selected_indices = parse_video_selection(
+        selected_indices = parse_videos_selection(
             user_input, len(context.user_data["playlist_available_videos"])
         )
 
@@ -216,7 +226,7 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
     if context.user_data["videos_urls"]:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=f"You selected the videos:\n{format_videos_urls(context.user_data['videos_urls'])}",
+            text=f"You selected the videos:\n{format_video_urls(context.user_data['videos_urls'])}",
             disable_web_page_preview=True,
         )
     else:
@@ -225,28 +235,28 @@ async def receive_video_selection(update: Update, context: ContextTypes.DEFAULT_
             text="You selected no videos.",
         )
 
-    context.user_data["selected_options"] = set()
-    return await show_options_menu(update, context)
+    context.user_data["selected_info_options"] = set()
+    return await send_info_options_menu(update, context)
 
 
-def build_options_keyboard(
-    selected_options, has_videos, is_playlist, has_hidden_videos
-):
-    """Build inline keyboard with options.
+def build_info_options_keyboard(
+    selected_info_options, has_videos, is_playlist, has_hidden_videos
+) -> InlineKeyboardMarkup:
+    """Build inline keyboard with info options.
     Add an indication on already selected options."""
-    options = VIDEO_OPTIONS[:] if has_videos else []
+    info_options = VIDEO_INFO_OPTIONS[:] if has_videos else []
 
     if is_playlist:
-        options += PLAYLIST_OPTIONS
+        info_options += PLAYLIST_INFO_OPTIONS
         if has_hidden_videos:
-            options.append("playlist hidden videos")
+            info_options.append("playlist hidden videos")
 
     keyboard = []
 
     # Add option buttons in two columns
     buttons_row = []
-    for option in options:
-        selected_indication = "✔️ " if option in selected_options else ""
+    for option in info_options:
+        selected_indication = "✔️ " if option in selected_info_options else ""
         buttons_row.append(
             InlineKeyboardButton(
                 f"{selected_indication}{option.title()}", callback_data=option
@@ -262,39 +272,37 @@ def build_options_keyboard(
         keyboard.append(buttons_row)
 
     # Add a "Select All"/"Deselect All" button
-    all_selected = set(options).issubset(selected_options)
-    select_all_label = "Select All" if not all_selected else "Deselect All"
+    is_all_options_selected = set(info_options).issubset(selected_info_options)
+    toggle_all_label = "Select All" if not is_all_options_selected else "Deselect All"
     keyboard.append(
-        [InlineKeyboardButton(select_all_label, callback_data="select_all")]
+        [InlineKeyboardButton(toggle_all_label, callback_data="toggle_all")]
     )
 
     if is_playlist:
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    "Select Different Playlist Videos", callback_data="select_videos"
+                    "Select Different Playlist Videos",
+                    callback_data="select_different_videos",
                 )
             ]
         )
 
     keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel")])
 
-    if selected_options:
+    if selected_info_options:
         keyboard.append([InlineKeyboardButton("✅ Done", callback_data="done")])
 
     return InlineKeyboardMarkup(keyboard)
 
 
-async def show_options_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show options selection menu."""
-    is_playlist = context.user_data["url_type"] == "playlist"
-    has_hidden_videos = len(context.user_data.get("playlist_hidden_videos", {})) > 0
-
-    keyboard = build_options_keyboard(
-        context.user_data["selected_options"],
-        bool(context.user_data["videos_urls"]),
-        is_playlist,
-        has_hidden_videos,
+async def send_info_options_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show info options selection menu."""
+    keyboard = build_info_options_keyboard(
+        selected_info_options=context.user_data["selected_info_options"],
+        has_videos=bool(context.user_data.get("videos_urls")),
+        is_playlist=context.user_data["url_type"] == "playlist",
+        has_hidden_videos=bool(context.user_data.get("playlist_hidden_videos")),
     )
 
     await context.bot.send_message(
@@ -303,34 +311,38 @@ async def show_options_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=keyboard,
     )
 
-    return SELECT_OPTIONS
+    return SELECT_INFO_OPTIONS
 
 
-async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_selected_info_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle user selection/unselection of options."""
     query = update.callback_query
-    option = query.data
+    await query.answer()
+    selected_info_option = query.data
 
-    if option == "done":
+    if selected_info_option == "done":
         # Sort user's selected options in the correct order
-        correct_order = VIDEO_OPTIONS + PLAYLIST_OPTIONS
-        context.user_data["selected_options"] = sorted(
-            context.user_data["selected_options"],
+        info_options_correct_order = VIDEO_INFO_OPTIONS + PLAYLIST_INFO_OPTIONS
+
+        context.user_data["selected_info_options"] = sorted(
+            context.user_data["selected_info_options"],
             key=lambda option: (
-                correct_order.index(option) if option in correct_order else float("inf")
+                info_options_correct_order.index(option)
+                if option in info_options_correct_order
+                else float("inf")
             ),
         )
 
         await query.message.edit_text(
             "You selected:\n"
             + "\n".join(
-                option.title() for option in context.user_data["selected_options"]
+                option.title() for option in context.user_data["selected_info_options"]
             )
         )
 
-        return await send_user_info(update, context)
+        return await send_infos(update, context)
 
-    elif option == "select_videos":
+    elif selected_info_option == "select_different_videos":
         await query.message.edit_text(
             text=f"This playlist has {len(context.user_data['playlist_available_videos'])} available videos.\n"
             "Choose which videos you want (e.g., 2, 4-7, 9).\n"
@@ -349,50 +361,54 @@ async def receive_option_selection(update: Update, context: ContextTypes.DEFAULT
 
         return SELECT_VIDEOS
 
-    elif option == "cancel":
-        await query.message.edit_text("Process finished. Send /start to begin again.")
-        return ConversationHandler.END
+    elif selected_info_option == "cancel":
+        await context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=query.message.id,
+        )
+        return await cancel(update, context)
 
-    has_videos = bool(context.user_data["videos_urls"])
+    has_videos = bool(context.user_data.get("videos_urls"))
     is_playlist = context.user_data["url_type"] == "playlist"
     has_hidden_videos = bool(context.user_data.get("playlist_hidden_videos"))
 
-    options = VIDEO_OPTIONS[:] if has_videos else []
+    info_options = VIDEO_INFO_OPTIONS[:] if has_videos else []
     if is_playlist:
-        options += PLAYLIST_OPTIONS
+        info_options += PLAYLIST_INFO_OPTIONS
         if has_hidden_videos:
-            options.append("playlist hidden videos")
+            info_options.append("playlist hidden videos")
 
-    if option == "select_all":
-        if set(options).issubset(context.user_data["selected_options"]):
-            context.user_data["selected_options"].clear()
+    if selected_info_option == "toggle_all":
+        if set(info_options).issubset(context.user_data["selected_info_options"]):
+            context.user_data["selected_info_options"].clear()
         else:
-            context.user_data["selected_options"] = set(options)
+            context.user_data["selected_info_options"] = set(info_options)
+
     else:
-        if option in context.user_data["selected_options"]:
-            context.user_data["selected_options"].remove(option)
+        if selected_info_option in context.user_data["selected_info_options"]:
+            context.user_data["selected_info_options"].remove(selected_info_option)
         else:
-            context.user_data["selected_options"].add(option)
+            context.user_data["selected_info_options"].add(selected_info_option)
 
-    keyboard = build_options_keyboard(
-        context.user_data["selected_options"],
-        has_videos,
-        is_playlist,
-        has_hidden_videos,
+    keyboard = build_info_options_keyboard(
+        selected_info_options=context.user_data["selected_info_options"],
+        has_videos=has_videos,
+        is_playlist=is_playlist,
+        has_hidden_videos=has_hidden_videos,
     )
     await query.message.edit_reply_markup(reply_markup=keyboard)
 
-    return SELECT_OPTIONS
+    return SELECT_INFO_OPTIONS
 
 
-async def send_thumbnail_photo(update, context, thumbnail_url, caption):
+async def send_thumbnail_photo(update, context, thumbnail_url, caption) -> bool:
     """Download the thumbnail and try to send it as a photo with caption.
     Return True if thumbnail was succesfully sent with caption.
     Else, return False, and, if possible, send only the thumbnail in a message."""
-    if not (original_image_data := await fetch_thumbnail(thumbnail_url)):
+    if not (original_image_data := await fetch_video_thumbnail(thumbnail_url)):
         return False
 
-    if not (processed_image := process_image(original_image_data)):
+    if not (processed_image := convert_image_to_jpeg(original_image_data)):
         return False
 
     try:
@@ -410,7 +426,7 @@ async def send_thumbnail_photo(update, context, thumbnail_url, caption):
     except BadRequest as e:
         print(f"Error sending photo with caption: {e}")
 
-        if not (processed_image := process_image(original_image_data)):
+        if not (processed_image := convert_image_to_jpeg(original_image_data)):
             return False
 
         await context.bot.send_photo(
@@ -421,98 +437,123 @@ async def send_thumbnail_photo(update, context, thumbnail_url, caption):
         return False
 
 
-async def send_user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def send_infos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send the user the requested information."""
-    stop_event = asyncio.Event()
-    check_task = asyncio.create_task(check_for_cancel(update, context, stop_event))
+    cancel_event = asyncio.Event()
+    check_cancel_task = asyncio.create_task(
+        check_for_cancel(update, context, cancel_event)
+    )
 
-    async def send_text(text):
-        """Send text message while checking for stop signal."""
-        if stop_event.is_set():
+    async def send_message_checking_cancel(message: str) -> bool:
+        """Send text message while checking for cancel command."""
+        if cancel_event.is_set():
             return False
+
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=text,
+            text=message,
             parse_mode="MarkdownV2",
             disable_web_page_preview=True,
             disable_notification=True,
         )
+
         return True
 
-    async def send_thumbnail(thumbnail_url, caption):
-        """Send thumbnail while checking for stop signal."""
-        if stop_event.is_set():
+    async def send_thumbnail_checking_cancel(thumbnail_url: str, caption: str) -> bool:
+        """Send thumbnail while checking for cancel command."""
+        if cancel_event.is_set():
             return False
+
         return await send_thumbnail_photo(update, context, thumbnail_url, caption)
 
-    has_playlist_info = any(
-        "playlist" in option for option in context.user_data["selected_options"]
+    has_requested_playlist_info = any(
+        "playlist" in option for option in context.user_data["selected_info_options"]
     )
 
-    if has_playlist_info:
-        playlist_info = await get_playlist_infos(context.user_data["url_id"])
-        if len(context.user_data.get("playlist_hidden_videos", {})) > 0:
-            playlist_info["playlist hidden videos"] = context.user_data[
+    if has_requested_playlist_info:
+        playlist_infos = await get_playlist_infos(context.user_data["url_id"])
+
+        if bool(context.user_data.get("playlist_hidden_videos")):
+            playlist_infos["playlist hidden videos"] = context.user_data[
                 "playlist_hidden_videos"
             ]
 
-        message = format_infos(playlist_info, context.user_data["selected_options"])
+        message = format_infos(
+            playlist_infos, context.user_data["selected_info_options"]
+        )
+
         for chunk in split_message(message):
-            if not await send_text(chunk):
+            if not await send_message_checking_cancel(chunk):
                 return
 
-    total_stats = None
+    total_statistics_infos = None
 
     if (video_count := len(context.user_data["videos_urls"])) > 1:
-        selected_stats = [
-            stat
-            for stat in OPTIONS_WITH_STATS
-            if stat in context.user_data["selected_options"]
+        selected_statistical_info_options = [
+            option
+            for option in STATISTICAL_INFO_OPTIONS
+            if option in context.user_data["selected_info_options"]
         ]
-        if selected_stats:
-            total_stats = {option: 0 for option in selected_stats}
+        if selected_statistical_info_options:
+            total_statistics_infos = {
+                option: 0 for option in selected_statistical_info_options
+            }
 
-    if any(option in VIDEO_OPTIONS for option in context.user_data["selected_options"]):
+    if any(
+        option in VIDEO_INFO_OPTIONS
+        for option in context.user_data["selected_info_options"]
+    ):
         for video_url in context.user_data["videos_urls"]:
-            if stop_event.is_set():
+            if cancel_event.is_set():
                 return
 
-            video_info = await get_video_infos(video_url)
+            video_infos = await get_video_infos(video_url)
             has_send_thumbnail = "thumbnail" in context.user_data[
-                "selected_options"
-            ] and video_info.get("thumbnail")
+                "selected_info_options"
+            ] and video_infos.get("thumbnail")
 
-            message = format_infos(video_info, context.user_data["selected_options"])
+            message = format_infos(
+                video_infos, context.user_data["selected_info_options"]
+            )
 
             if has_send_thumbnail:
-                if await send_thumbnail(video_info["thumbnail"], message):
+                if await send_thumbnail_checking_cancel(
+                    video_infos["thumbnail"], message
+                ):
                     continue
 
             # If thumbnail wasn't sent with caption, or if has_send_thumbnail was False, send the text message
             for chunk in split_message(message):
-                if not await send_text(chunk):
+                if not await send_message_checking_cancel(chunk):
                     return
 
-            if video_count > 1 and selected_stats:
-                for stat in selected_stats:
-                    if isinstance(video_info.get(stat), (int, float)):
-                        total_stats[stat] += video_info[stat]
+            if video_count > 1 and selected_statistical_info_options:
+                for option in selected_statistical_info_options:
+                    if isinstance(video_infos.get(option), (int, float)):
+                        total_statistics_infos[option] += video_infos[option]
 
-    if total_stats and any(value > 0 for value in total_stats.values()):
-        await send_text(
-            "*Total Statistics:*\n\n" + format_infos(total_stats, selected_stats)
+    if total_statistics_infos and any(
+        info_value > 0 for info_value in total_statistics_infos.values()
+    ):
+        await send_message_checking_cancel(
+            "*Total Statistics:*\n\n"
+            + format_infos(total_statistics_infos, selected_statistical_info_options)
         )
 
-        average_stats = {
-            stat: int(value) if value.is_integer() else round(value, 2)
-            for stat, value in ((s, total_stats[s] / video_count) for s in total_stats)
+        average_statistics_infos = {
+            info: int(info_value) if info_value.is_integer() else round(info_value, 2)
+            for info, info_value in (
+                (total_info, total_statistics_infos[total_info] / video_count)
+                for total_info in total_statistics_infos
+            )
         }
-        await send_text(
-            "*Average Statistics per Video:*\n\n"
-            + format_infos(average_stats, selected_stats)
+
+        await send_message_checking_cancel(
+            "*Average Statistics:*\n\n"
+            + format_infos(average_statistics_infos, selected_statistical_info_options)
         )
 
-    check_task.cancel()
+    check_cancel_task.cancel()
 
-    context.user_data["selected_options"] = set()
-    return await show_options_menu(update, context)
+    context.user_data["selected_info_options"].clear()
+    return await send_info_options_menu(update, context)

@@ -1,8 +1,8 @@
 # ConversationHandler states
-URL, SELECT_VIDEOS, SELECT_OPTIONS = range(3)
+PROVIDE_URL, SELECT_VIDEOS, SELECT_INFO_OPTIONS = range(3)
 
-# Options available to users
-VIDEO_OPTIONS = [
+# Info options available to users
+VIDEO_INFO_OPTIONS = [
     "title",
     "duration",
     "views count",
@@ -14,14 +14,14 @@ VIDEO_OPTIONS = [
     "chapters",
     "thumbnail",
 ]
-PLAYLIST_OPTIONS = [
+PLAYLIST_INFO_OPTIONS = [
     "playlist title",
     "playlist description",
     "playlist uploader",
 ]
 
-# Options that have statistics
-OPTIONS_WITH_STATS = [
+# Info options that have statistics
+STATISTICAL_INFO_OPTIONS = [
     "duration",
     "views count",
     "likes count",
