@@ -1,8 +1,78 @@
 import asyncio
 
 from telegram import Update
-from telegram.error import TimedOut
+from telegram.error import BadRequest, TimedOut
 from telegram.ext import ContextTypes, ConversationHandler
+
+from utils.image_helpers import convert_image_to_jpeg, fetch_video_thumbnail
+from utils.yt_helpers import (
+    get_videos_urls,
+    get_youtube_url_id,
+    get_youtube_url_type,
+    is_valid_youtube_url_format,
+)
+
+
+async def validate_youtube_url(
+    url: str, context: ContextTypes.DEFAULT_TYPE
+) -> str | None:
+    """Validates the provided URL by performing a series of checks. 
+    Returns an appropriate error message if any validation fails, or None if all checks pass. 
+    Stores relevant data (url_type, url_id, videos_urls) in user data via context."""
+    if not is_valid_youtube_url_format(url):
+        return "❌ Invalid YouTube URL format"
+
+    if not (
+        (url_type := get_youtube_url_type(url))
+        and (url_id := get_youtube_url_id(url, url_type))
+    ):
+        return "❌ Invalid YouTube URL"
+
+    context.user_data["url_type"] = url_type
+    context.user_data["url_id"] = url_id
+
+    if not (videos_urls := await get_videos_urls(url_type, url_id)):
+        return "❌ Unavailable YouTube URL"
+
+    context.user_data["videos_urls"] = videos_urls
+
+    return None
+
+
+async def send_thumbnail_photo(update, context, thumbnail_url, caption) -> bool:
+    """Download the thumbnail and try to send it as a photo with caption.
+    Return True if thumbnail was succesfully sent with caption.
+    Else, return False, and, if possible, send only the thumbnail in a message."""
+    if not (original_image_data := await fetch_video_thumbnail(thumbnail_url)):
+        return False
+
+    if not (processed_image := convert_image_to_jpeg(original_image_data)):
+        return False
+
+    try:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=processed_image,
+            caption=caption,
+            parse_mode="MarkdownV2",
+            disable_notification=True,
+        )
+        return True
+
+    # Limit for Telegram caption length is 1024 characters
+    # Some videos have long captions, so send only the thumbnail
+    except BadRequest as e:
+        print(f"Error sending photo with caption: {e}")
+
+        if not (processed_image := convert_image_to_jpeg(original_image_data)):
+            return False
+
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=processed_image,
+            disable_notification=True,
+        )
+        return False
 
 
 async def check_for_cancel(

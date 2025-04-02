@@ -4,7 +4,12 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
-from handlers.common_handlers import cancel, check_for_cancel
+from handlers.common_handlers import (
+    cancel,
+    check_for_cancel,
+    send_thumbnail_photo,
+    validate_youtube_url,
+)
 
 from utils.bot_data import (
     PLAYLIST_INFO_OPTIONS,
@@ -20,15 +25,10 @@ from utils.format_helpers import (
     parse_videos_selection,
     split_message,
 )
-from utils.image_helpers import convert_image_to_jpeg, fetch_video_thumbnail
 from utils.yt_helpers import (
     get_hidden_playlist_videos,
     get_playlist_infos,
     get_video_infos,
-    get_videos_urls,
-    get_youtube_url_id,
-    get_youtube_url_type,
-    is_valid_youtube_url_format,
 )
 
 
@@ -48,7 +48,7 @@ async def get_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Receives a YouTube URL, validates it, and routes accordingly."""
     url = update.message.text.replace(" ", "")
 
-    # Delete previous wrong and error messages (if exists)
+    # Delete previous not valid user message and error message (if exists)
     for message in ["last_error_message_id", "last_invalid_user_message_id"]:
         if message in context.user_data:
             try:
@@ -60,31 +60,13 @@ async def get_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except BadRequest:
                 pass
 
-    error_message = None
-
-    if not is_valid_youtube_url_format(url):
+    # Validate url, if there is an error, send error message, store message IDs and return
+    if error_message_text := await validate_youtube_url(url, context):
         error_message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="❌ Invalid YouTube URL format. Please send a valid video or playlist URL.",
+            text=f"{error_message_text}. Please send a valid video or playlist URL.",
         )
 
-    elif not (
-        (url_type := get_youtube_url_type(url))
-        and (url_id := get_youtube_url_id(url, url_type))
-    ):
-        error_message = await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="❌ Invalid YouTube URL. Please send a valid video or playlist URL.",
-        )
-
-    elif not (videos_urls := await get_videos_urls(url_type, url_id)):
-        error_message = await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="❌ Unavailable YouTube URL. Please send a valid video or playlist URL.",
-        )
-
-    # If there was an error, store message IDs and return
-    if error_message:
         context.user_data["last_error_message_id"] = error_message.message_id
         context.user_data["last_invalid_user_message_id"] = update.message.message_id
         return PROVIDE_URL
@@ -93,11 +75,7 @@ async def get_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("last_error_message_id", None)
     context.user_data.pop("last_invalid_user_message_id", None)
 
-    context.user_data["url_type"] = url_type
-    context.user_data["url_id"] = url_id
-    context.user_data["videos_urls"] = videos_urls
-
-    if url_type == "playlist":
+    if context.user_data["url_type"] == "playlist":
         return await handle_playlist(update, context)
 
     context.user_data["selected_info_options"] = set()
@@ -399,42 +377,6 @@ async def get_selected_info_options(update: Update, context: ContextTypes.DEFAUL
     await query.message.edit_reply_markup(reply_markup=keyboard)
 
     return SELECT_INFO_OPTIONS
-
-
-async def send_thumbnail_photo(update, context, thumbnail_url, caption) -> bool:
-    """Download the thumbnail and try to send it as a photo with caption.
-    Return True if thumbnail was succesfully sent with caption.
-    Else, return False, and, if possible, send only the thumbnail in a message."""
-    if not (original_image_data := await fetch_video_thumbnail(thumbnail_url)):
-        return False
-
-    if not (processed_image := convert_image_to_jpeg(original_image_data)):
-        return False
-
-    try:
-        await context.bot.send_photo(
-            chat_id=update.effective_chat.id,
-            photo=processed_image,
-            caption=caption,
-            parse_mode="MarkdownV2",
-            disable_notification=True,
-        )
-        return True
-
-    # Limit for Telegram caption length is 1024 characters
-    # Some videos have long captions, so send only the thumbnail
-    except BadRequest as e:
-        print(f"Error sending photo with caption: {e}")
-
-        if not (processed_image := convert_image_to_jpeg(original_image_data)):
-            return False
-
-        await context.bot.send_photo(
-            chat_id=update.effective_chat.id,
-            photo=processed_image,
-            disable_notification=True,
-        )
-        return False
 
 
 async def send_infos(update: Update, context: ContextTypes.DEFAULT_TYPE):
