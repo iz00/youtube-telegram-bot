@@ -18,7 +18,7 @@ from utils.yt_helpers import (
 )
 
 
-async def get_send_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_send_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Triggered by /info command, send information on the video or playlist to user."""
     context.user_data.clear()
     context.user_data["conversation"] = False
@@ -95,7 +95,9 @@ async def get_send_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     check_cancel_task.cancel()
 
 
-async def get_send_thumbnail(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_send_thumbnail(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Triggered by /thumbnail command, send video thumbnail to the user."""
     context.user_data.clear()
     context.user_data["conversation"] = False
@@ -133,14 +135,16 @@ async def get_send_thumbnail(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return
 
-    message = format_infos(infos, ["thumbnail"])
+    thumbnail_message = format_infos(infos, ["thumbnail"])
 
-    if await send_thumbnail_photo(update, context, infos["thumbnail"], message):
+    if await send_thumbnail_photo(
+        update, context, infos["thumbnail"], thumbnail_message
+    ):
         return
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=message,
+        text=thumbnail_message,
         parse_mode="MarkdownV2",
         disable_web_page_preview=True,
         disable_notification=True,
