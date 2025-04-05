@@ -287,7 +287,7 @@ def build_info_options_keyboard(
 
 
 async def send_info_options_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show info options selection menu."""
+    """Send user info options selection menu."""
     context.user_data["available_info_options"] = set()
     context.user_data["available_info_options"] = (
         VIDEO_INFO_OPTIONS[:] if bool(context.user_data.get("videos_urls")) else []
@@ -314,7 +314,7 @@ async def send_info_options_menu(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def get_selected_info_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle user selection/unselection of options."""
+    """Handle user selection/deselection of info options."""
     query = update.callback_query
     await query.answer()
     selected_info_option = query.data
@@ -463,7 +463,7 @@ async def send_infos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             video_infos = await get_video_infos(video_url)
 
-            if selected_statistical_info_options:
+            if video_count > 1 and selected_statistical_info_options:
                 for option in selected_statistical_info_options:
                     if isinstance(video_infos.get(option), (int, float)):
                         total_statistics_infos[option] += video_infos[option]
@@ -508,5 +508,5 @@ async def send_infos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     check_cancel_task.cancel()
 
-    context.user_data["selected_info_options"].clear()
+    context.user_data["selected_info_options"] = set()
     return await send_info_options_menu(update, context)
