@@ -1,3 +1,15 @@
+"""
+Telegram common handlers and helper functions used across multiple Telegram bot commands.
+
+Includes:
+- /cancel command handler.
+- General error handler.
+- Shared helper functions:
+    - URL validation steps.
+    - Thumbnail sending logic.
+    - Cancellation checks during long operations.
+"""
+
 import asyncio
 
 from telegram import Update

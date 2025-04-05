@@ -1,3 +1,12 @@
+"""
+Main entry point for the Telegram bot.
+
+Initializes the bot application, sets up commands and conversation handlers,
+and starts polling for updates.
+
+Run this script to start the bot.
+"""
+
 import logging
 
 from telegram.ext import (

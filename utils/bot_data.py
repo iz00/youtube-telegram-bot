@@ -1,3 +1,12 @@
+"""
+Defines constants and shared data for the Telegram bot conversation flow and info options.
+
+Includes:
+- ConversationHandler states.
+- Info options available to users (for videos and playlists).
+- Info options that have statistics.
+"""
+
 # ConversationHandler states
 PROVIDE_URL, SELECT_VIDEOS, SELECT_INFO_OPTIONS = range(3)
 

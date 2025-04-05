@@ -1,3 +1,14 @@
+"""
+Provides helper functions for validating YouTube URLs and fetching metadata using yt_dlp and the YouTube Data API.
+
+Includes:
+- URL format validation and ID extraction.
+- Detection of URL type (video or playlist).
+- Fetching of video and playlist URLs, including detection of unavailable videos.
+- Fetching of metadata for individual videos and playlists.
+- Asynchronous support for efficient network-bound operations.
+"""
+
 import aiohttp, asyncio, re, yt_dlp
 
 from config import YOUTUBE_API_KEY

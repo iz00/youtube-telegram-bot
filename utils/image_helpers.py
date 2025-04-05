@@ -1,3 +1,11 @@
+"""
+Provides helper functions for handling video thumbnails.
+
+Includes:
+- Asynchronous fetching of thumbnail images from a given URL.
+- Convertion of image bytes to JPEG format using Pillow.
+"""
+
 import aiohttp
 
 from io import BytesIO

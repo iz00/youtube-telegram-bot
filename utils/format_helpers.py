@@ -1,3 +1,14 @@
+"""
+Provides formatting and parsing helper functions for user input and YouTube data.
+
+Includes:
+- Parsing of user video selection input (e.g., "2, 4-7, 9")
+- Formatting of durations, dates, and video chapters
+- Escaping of text for Telegram MarkdownV2
+- Formatting of video/playlist information for displaying
+- Splitting of long messages while preserving formatting
+"""
+
 import re
 
 from datetime import datetime

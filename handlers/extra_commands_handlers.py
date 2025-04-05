@@ -1,3 +1,13 @@
+"""
+Telegram command handlers for additional bot commands outside the main conversation flow.
+
+Includes handlers for commands:
+- /info: Fetches and displays all information about a YouTube video or playlist.
+- /thumbnail: Sends the thumbnail image of a YouTube video.
+
+These handlers validate URLs, manage cancellation, and return formatted results to the user.
+"""
+
 import asyncio
 
 from telegram import Update

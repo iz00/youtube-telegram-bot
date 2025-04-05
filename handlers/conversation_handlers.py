@@ -1,3 +1,20 @@
+"""
+Telegram conversation flow handlers for managing multi-step user interactions.
+
+Includes handlers for:
+- /start: Begins the guided process to fetch video or playlist informations.
+- URL input: Prompts the user for a valid YouTube video or playlist URL.
+- Playlist videos selection: Allows selection of specific videos from a playlist.
+- Info options selection: Lets users choose which video infos to fetch (e.g. title, views).
+
+These handlers coordinate a full conversation using Telegram's ConversationHandler,
+managing states like URL input, selection menus, and response formatting.
+
+Also includes:
+- Inline button handling for playlist selection and info options.
+- Automatic cancellation detection throughout the conversation flow.
+"""
+
 import asyncio
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update

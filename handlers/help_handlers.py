@@ -1,3 +1,13 @@
+"""
+Telegram command handlers for displaying help and usage instructions.
+
+Includes handlers for commands:
+- /help: General overview of the bot and its commands.
+- /help_url: Information about valid YouTube video and playlist URLs.
+- /help_infos: Lists all available information options users can fetch.
+- /help_commands: Summarizes other bot commands (like /info, /thumbnail).
+"""
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
