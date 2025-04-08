@@ -55,3 +55,37 @@
 </table>
 
 <hr>
+
+## Features
+
+- Accepts a **YouTube video** or **playlist URL** to fetch information from.
+	- *Reprompts the user if the URL is invalid or unavailable*.
+- For **playlists**:
+	- **Separates** **available** and **hidden** videos.
+	- Allows the user to **select specific videos** from those available.
+		- *Supports reselecting different videos later without needing to resend the URL*.
+- Enables the user to **choose any combination** of the following information to retrieve:
+	- For **videos**:
+		- **Title**;
+		- **Duration**;
+		- **Views count**;
+		- **Likes count**;
+		- **Comments count**;
+		- **Upload date**;
+		- **Uploader**;
+		- **Description**;
+		- **Chapters**;
+		- **Thumbnail** (*sent as a Telegram photo*).
+	- For **playlists**:
+		- **Title**;
+		- **Description**;
+		- **Uploader**.
+		- **Total** and **Average** values (across selected videos) for:
+			- *Duration*, *Views*, *Likes*, and *Comments Count*.
+- After showing the selected information, the bot **returns to the information selection menu**, allowing the user to **explore more data** from the same URL *without resending it*.
+- Provides **specific commands** to:
+	- Fetch **all available information** for a *video* or *playlist* (`/info`).
+	- Retrieve **only the thumbnail** of a video (`/thumbnail`).
+- The user can **cancel any operation** or **end the conversation** at any time (`/cancel`).
+
+<hr>
