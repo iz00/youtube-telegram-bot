@@ -79,13 +79,50 @@
 	- For **playlists**:
 		- **Title**;
 		- **Description**;
-		- **Uploader**.
-		- **Total** and **Average** values (across selected videos) for:
+		- **Uploader**;
+		- **Hidden Videos**;
+		- **Total** and **Average** values (*across selected videos*) for:
 			- *Duration*, *Views*, *Likes*, and *Comments Count*.
 - After showing the selected information, the bot **returns to the information selection menu**, allowing the user to **explore more data** from the same URL *without resending it*.
 - Provides **specific commands** to:
-	- Fetch **all available information** for a *video* or *playlist* (`/info`).
-	- Retrieve **only the thumbnail** of a video (`/thumbnail`).
-- The user can **cancel any operation** or **end the conversation** at any time (`/cancel`).
+	- Fetch **all available information** for a *video* or *playlist*.
+	- Retrieve **only the thumbnail** of a video.
+- The user can **cancel any operation** or **end the conversation** at any time.
 
 <hr>
+
+## How to Use the Bot
+
+### Commands
+
+#### Help
+
+- **`/help`**: Gives **general instructions and information** about the bot and how to use it.
+- **`/help_url`**: Provides informations about **supported and valid YouTube URL formats**.
+- **`/help_infos`**: Lists and clarifies the **available information types** the bot can fetch.
+- **`/help_commands`**: Describes the **extra commands** available beyond the main `/start`.
+
+#### Main Conversation
+
+- **`/start`**: Begins an interactive **conversation** with the user, consisting of the following steps:
+	- Prompts the user to provide a **Youtube video or playlist URL**.
+		- *If the URL is invalid, the bot prompts again*.
+  - *If the URL is a playlist*, prompts the user to **choose specific videos** (*or select all/none*).
+  	- *If the selection is invalid, the bot prompts again*.
+  - Displays an **information selection menu**, including:
+  	- Toggleable buttons for each **available information option** (*depending on whether it’s a video or playlist*);
+    - A `Select/Deselect All` button to toggle all information options;
+    - *If it's a playlist*, a `Select Different Videos` button to select other playlist videos;
+    - A `Cancel` button to finish the conversation;
+    - A `Done` button to confirm the selection.
+  - Once `Done` is selected, the bot **sends the chosen information**.
+  - The **menu is resent automatically**, allowing the user to select more data until they cancel or start a new conversation.
+
+#### Extras
+
+- **`/info <URL>`**: Validates the given *YouTube video or playlist URL* and returns **all available information**.
+	- *For playlists*, this command fetches only the **playlist-level information**, *not data for each video*.
+- **`/thumbnail <URL>`**: Validates a *YouTube video URL*, retrieves its **thumbnail**, and sends it as a **Telegram photo**.
+
+#### Cancel
+- **`/cancel`**: Cancels the current conversation or any ongoing bot process at any time.
