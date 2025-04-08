@@ -91,7 +91,7 @@
 
 <hr>
 
-## How to Use the Bot
+## Usage
 
 ### Commands
 
@@ -126,3 +126,74 @@
 
 #### Cancel
 - **`/cancel`**: Cancels the current conversation or any ongoing bot process at any time.
+
+<hr>
+
+## How to Run
+
+These are the instructions for running the bot locally.
+> ℹ️ The bot is already deployed and available on [Telegram](https://t.me/YouTubedlpHelperBot).
+
+### Prerequisites
+
+- Python 3.9+
+	```bash
+	sudo apt install python3
+	```
+- pip
+	```bash
+	sudo apt install python3-pip
+	```
+
+### Setup and Run
+
+1. Clone the repository
+	```bash
+	git clone https://github.com/iz00/youtube-telegram-bot.git
+ 	cd youtube-telegram-bot
+	```
+2. (Optional) Create and activate a virtual environment
+	```bash
+	pip install virtualenv
+	python3 -m venv .venv
+ 	source .venv/bin/activate
+	```
+3. Install required packages
+	```bash
+	pip install -r requirements.txt
+	```
+4. Get and set up the following configuration variables
+	- `BOT_TOKEN`: Your Telegram bot token
+		- [Create a Telegram bot](https://core.telegram.org/bots/tutorial#obtain-your-bot-token) through [@BotFather](https://t.me/BotFather) and get the token.
+	- `YOUTUBE_API_KEY`: Your YouTube Data API key
+		- Follow the official [Getting Started](https://developers.google.com/youtube/v3/getting-started#before-you-start) and the [Obtaining Authorization Credentials](https://developers.google.com/youtube/registering_an_application) guides.
+
+   You can set these variables in two ways:
+   - Using environment variables:
+	  ```bash
+	  export BOT_TOKEN="your_bot_token_here"
+	  export YOUTUBE_API_KEY="your_api_key_here"
+	  ```
+     *Optionally, add these lines to your shell config file (e.g., `.bashrc` or `.zshrc`) to persist them*.
+
+   - Hardcoding in [`config.py`](https://github.com/iz00/youtube-telegram-bot/blob/main/config.py):
+	 ```python
+	 BOT_TOKEN = "your_bot_token_here"
+	 YOUTUBE_API_KEY = "your_api_key_here"
+	 ```
+5. Run the bot
+	```bash
+	python3 bot.py
+	```
+6. (Optional) Get a `cookies.txt` file
+
+	If `yt-dlp` returns an error like `Sign in to confirm you’re not a bot.`, it may be solved by providing a `cookies.txt` file.
+	- Follow the official yt-dlp guides on [how to get cookies](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp) and [how to get cookies that are not rotated](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies).
+ 	- Place the `cookies.txt` file in the root directory of the project — *the code is already set up to use it automatically*.
+
+	If you still encounter issues, try updating `yt-dlp`:
+	```bash
+	pip install -U yt-dlp
+	```
+
+<hr>
