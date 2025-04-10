@@ -58,12 +58,12 @@
 
 ## Features
 
-- Accepts a **YouTube video** or **playlist URL** to fetch information from.
-	- *Reprompts the user if the URL is invalid or unavailable*.
-- For **playlists**:
-	- **Separates** **available** and **hidden** videos.
-	- Allows the user to **select specific videos** from those available.
-		- *Supports reselecting different videos later without needing to resend the URL*.
+- Support multiple **YouTube URL formats**, including:
+	- Standard video URLs `youtube.com/watch?v=...`;
+ 	- Shortened URLs `youtu.be/...`;
+	- Shorts URLs `youtube.com/shorts/...`;
+	- Playlist URLs `youtube.com/playlist?list=...`.
+- Allows the user to **select specific videos** to get data on from those available in a playlist.
 - Enables the user to **choose any combination** of the following information to retrieve:
 	- For **videos**:
 		- **Title**;
