@@ -197,3 +197,19 @@ These are the instructions for running the bot locally.
 	```
 
 <hr>
+
+## Future Features and Improvements
+
+- [ ] Allow simultaneous usage by multiple users;
+- [ ] Improve playlist video selection flexibility:
+	- [ ] Allow selection video ranges like `-5` (*first five videos*) or `5-` (*from fifth to last videos*).
+- [ ] Support embedded YouTube URLs;
+- [ ] Add download options:
+ 	- [ ] Video (*e.g., `.mp4`*);
+	- [ ] Audio only (*e.g., `.mp3`*);
+ 	- [ ] Allow users to select start and end timestamps for trimming;
+  - [ ] Handle large filesizes by sending download links, instead of direct Telegram uploads.
+- [ ] Add feature to extract a frame from a video at a specific second;
+- [ ] Fetch and display YouTube channel informations (*e.g. name, subscriber count, total videos, etc*).
+
+<hr>
