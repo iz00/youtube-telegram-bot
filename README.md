@@ -210,6 +210,30 @@ These are the instructions for running the bot locally.
  	- [ ] Allow users to select start and end timestamps for trimming;
   - [ ] Handle large filesizes by sending download links, instead of direct Telegram uploads.
 - [ ] Add feature to extract a frame from a video at a specific second;
-- [ ] Fetch and display YouTube channel informations (*e.g. name, subscriber count, total videos, etc*).
+- [ ] Fetch and display YouTube channel informations (*e.g. name, subscriber count, total videos, etc*);
+- [ ] Add automated tests.
+
+<hr>
+
+## Personal Considerations
+
+### Objective
+
+This project was initially created as the [final project](https://cs50.harvard.edu/x/project/) for [CS50x](https://cs50.harvard.edu/x).
+The goal was for it to be a learning experience, going through the full development cycle, from ideia to deployment, and to build a Telegram bot that would actually be usable.
+
+### Key Learnings
+
+- **APIs and Frameworks Integration**: I Learned how to work with tools like `yt-dlp`, `Youtube Data API` and `python-telegram-bot`, and make them all function together;
+- **Problem Solving**: Some desired features didn't have straightforward or built-in support, so I had to come up with workarounds. For example, there was no API or framework method for filtering only valid videos in playlists, so the solution was manually validating each video and trying to optimize the process to reduce execution time;
+- **User-Centered Design**: I focused on improving user experience, through validations, re-prompts, clear and consistent messages and prioritizing a guided conversation flow over relying solely on individual commands;
+- **Code Organization**: I put effort into making the project more readable and maintainable, splitting logic into submodules and using naming and styling conventions. This part seemed way more necessary as the codebase grew and thinking on making future maintenance or collaboration easier.
+
+### Challenges Faced
+
+- **Asynchronous Programming**: Since `python-telegram-bot` is async-based and the goal was to support multiple users interacting with the bot at the same time, it was necessary to handle asynchronous logic;
+- **Performance Optimization**: Some operations (like filtering only valid videos in playlists) were slow, so I had to work on optimizations to make the bot feel responsive;
+- **Handling Cancellations**: Allowing users to cancel bot operations proved difficult, most likely due to the async nature of the bot and how some long-running tasks were executed;
+- **Deployment Issues**: Deploying to a VPS introduced unexpected issues, for example, `yt-dlp` behaving differently than it did locally, requiring a `cookies.txt` file to work properly and frequent updates to avoid errors.
 
 <hr>
