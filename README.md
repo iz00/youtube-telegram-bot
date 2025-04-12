@@ -13,9 +13,30 @@
 
   ### [Telegram Bot](https://core.telegram.org/bots) that gets informations on YouTube videos and playlists.
 
-<hr>
-
 </div>
+
+<details>
+	<summary>Table of Contents</summary>
+
+1. [**Built With**](#built-with)  
+2. [**Features**](#features)  
+3. [**Usage**](#usage)  
+   - [**Help Commands**](#help)  
+   - [**Main Conversation**](#main-conversation)  
+   - [**Extra Commands**](#extras)  
+   - [**Cancel Command**](#cancel)  
+4. [**How to Run**](#how-to-run)  
+   - [**Prerequisites**](#prerequisites)  
+   - [**Setup and Run**](#setup-and-run)  
+5. [**Future Features and Improvements**](#future-features-and-improvements)  
+6. [**Personal Considerations**](#personal-considerations)  
+   - [**Objective**](#objective)  
+   - [**Key Learnings**](#key-learnings)  
+   - [**Challenges Faced**](#challenges-faced)
+	
+</details>
+
+<hr>
 
 ## Built With
 
