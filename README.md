@@ -13,6 +13,9 @@
 
   ### [Telegram Bot](https://core.telegram.org/bots) that gets informations on YouTube videos and playlists.
 
+<img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExd3EyeHdzY2Ziazl1bTFpYW1pZGlpd3oweTJ2ZXlneXB4bjhmbWh5NSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WSdKSYJc7xPcJtQpA4/giphy.gif" />
+
+
 </div>
 
 <details>
