@@ -13,8 +13,7 @@
 
   ### [Telegram Bot](https://core.telegram.org/bots) that gets informations on YouTube videos and playlists.
 
-<img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExd3EyeHdzY2Ziazl1bTFpYW1pZGlpd3oweTJ2ZXlneXB4bjhmbWh5NSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WSdKSYJc7xPcJtQpA4/giphy.gif" />
-
+ <img src="https://media1.giphy.com/media/WSdKSYJc7xPcJtQpA4/giphy.gif" />
 
 </div>
 
@@ -36,7 +35,7 @@
    - [**Objective**](#objective)  
    - [**Key Learnings**](#key-learnings)  
    - [**Challenges Faced**](#challenges-faced)
-	
+
 </details>
 
 <hr>
@@ -99,7 +98,7 @@
 		- **Uploader**;
 		- **Description**;
 		- **Chapters**;
-		- **Thumbnail** (*sent as a Telegram photo*).
+		- **Thumbnail** in best quality (*sent as a Telegram photo*).
 	- For **playlists**:
 		- **Title**;
 		- **Description**;
@@ -112,6 +111,24 @@
 	- Fetch **all available information** for a *video* or *playlist*.
 	- Retrieve **only the thumbnail** of a video.
 - The user can **cancel any operation** or **end the conversation** at any time.
+
+<br>
+
+<div align="center">
+
+  <img src="https://media1.giphy.com/media/mVYNCxMw0N89gE6f5Z/giphy.gif" />
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="https://media1.giphy.com/media/ACBxaWuB3qGQ0PIW6l/giphy.gif" />
+
+<br><br>
+
+  <img src="https://media1.giphy.com/media/m6eyuAgM78PbIXTLQl/giphy.gif" />
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="https://media1.giphy.com/media/C6702p6CbmizoANyp9/giphy.gif" />
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+	<img src="https://media1.giphy.com/media/r0ZRhrzSh15Qnl22ng/giphy.gif" />
+
+</div>
 
 <hr>
 
